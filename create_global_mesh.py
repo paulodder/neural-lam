@@ -14,6 +14,8 @@ from graphcast import graphcast as gc_gc
 from graphcast import grid_mesh_connectivity as gc_gm
 from graphcast import icosahedral_mesh as gc_im
 from graphcast import model_utils as gc_mu
+from src.constants import DATASETS_DIR, GRAPHS_DIR
+
 
 GC_SPATIAL_FEATURES_KWARGS = {
     "add_node_positions": False,
@@ -133,7 +135,7 @@ def main():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="global_example_era5",
+        default="global_era5",
         help="Dataset to load grid point coordinates from "
         "(default: global_example_era5)",
     )
@@ -170,8 +172,8 @@ def main():
     )
     args = parser.parse_args()
 
-    fields_group_path = os.path.join("data", args.dataset, "fields.zarr")
-    graph_dir_path = os.path.join("graphs", args.graph)
+    fields_group_path = DATASETS_DIR / args.dataset / "fields.zarr"
+    graph_dir_path = GRAPHS_DIR / args.graph
     os.makedirs(graph_dir_path, exist_ok=True)
 
     # Load grid positions
@@ -207,7 +209,9 @@ def main():
     )
 
     # Mesh, index 0 is initial graph, with longest edges
-    mesh_list = gc_im.get_hierarchy_of_triangular_meshes_for_sphere(args.splits)
+    mesh_list = gc_im.get_hierarchy_of_triangular_meshes_for_sphere(
+        args.splits
+    )
     if args.levels is not None:
         assert (
             args.levels <= args.splits + 1
@@ -243,7 +247,11 @@ def main():
             )  # (N, 2)
 
             # Extract features for hierarchical edges
-            _, _, mesh_up_features = gc_mu.get_bipartite_graph_spatial_features(
+            (
+                _,
+                _,
+                mesh_up_features,
+            ) = gc_mu.get_bipartite_graph_spatial_features(
                 senders_node_lat=from_mesh_lat_lon[:, 0],
                 senders_node_lon=from_mesh_lat_lon[:, 1],
                 senders=mesh_up_ei[0, :],
@@ -252,16 +260,18 @@ def main():
                 receivers=mesh_up_ei[1, :],
                 **GC_SPATIAL_FEATURES_KWARGS,
             )
-            _, _, mesh_down_features = (
-                gc_mu.get_bipartite_graph_spatial_features(
-                    senders_node_lat=to_mesh_lat_lon[:, 0],
-                    senders_node_lon=to_mesh_lat_lon[:, 1],
-                    senders=mesh_down_ei[0, :],
-                    receivers_node_lat=from_mesh_lat_lon[:, 0],
-                    receivers_node_lon=from_mesh_lat_lon[:, 1],
-                    receivers=mesh_down_ei[1, :],
-                    **GC_SPATIAL_FEATURES_KWARGS,
-                )
+            (
+                _,
+                _,
+                mesh_down_features,
+            ) = gc_mu.get_bipartite_graph_spatial_features(
+                senders_node_lat=to_mesh_lat_lon[:, 0],
+                senders_node_lon=to_mesh_lat_lon[:, 1],
+                senders=mesh_down_ei[0, :],
+                receivers_node_lat=from_mesh_lat_lon[:, 0],
+                receivers_node_lon=from_mesh_lat_lon[:, 1],
+                receivers=mesh_down_ei[1, :],
+                **GC_SPATIAL_FEATURES_KWARGS,
             )
             mesh_up_features_list.append(
                 torch.tensor(mesh_up_features, dtype=torch.float32)
@@ -332,7 +342,9 @@ def main():
             mesh_lat_lon[:, 0],
             mesh_lat_lon[:, 1],
         )
-        assert np.sum(np.abs(mesh_features[:, 0] - np.cos(mesh_theta))) <= 1e-10
+        assert (
+            np.sum(np.abs(mesh_features[:, 0] - np.cos(mesh_theta))) <= 1e-10
+        )
 
     # Convert to torch
     m2m_edge_index_torch = [
@@ -387,7 +399,9 @@ def main():
     )
 
     # Grid2Mesh: Radius-based
-    grid_con_mesh = m2m_graphs[0]  # Mesh graph that should be connected to grid
+    grid_con_mesh = m2m_graphs[
+        0
+    ]  # Mesh graph that should be connected to grid
     grid_con_mesh_lat_lon = mesh_lat_lon_list[0]
 
     # Compute maximum edge distance in finest mesh
