@@ -13,6 +13,7 @@ from tqdm import tqdm
 from neural_lam import constants
 from neural_lam.era5_dataset import ERA5Dataset
 from neural_lam.weather_dataset import WeatherDataset
+from bwdl.constants import DATA_DIR
 
 
 def main():
@@ -47,7 +48,7 @@ def main():
     )
     args = parser.parse_args()
 
-    static_dir_path = os.path.join("data", args.dataset, "static")
+    static_dir_path = DATA_DIR / args.dataset / "static"
     global_ds = "global" in args.dataset
 
     if global_ds:
@@ -71,7 +72,7 @@ def main():
         # (num_variables,)
 
         # Compute spatial weighting for grid nodes
-        fields_group_path = os.path.join("data", args.dataset, "fields.zarr")
+        fields_group_path = DATA_DIR / args.dataset / "fields.zarr"
         xds = xa.open_zarr(fields_group_path)
         # Hack since GC code uses "lat" for some reason
         xds = xds.assign_coords({"lat": xds.coords["latitude"]})
@@ -99,7 +100,10 @@ def main():
             "500": 0.03,
         }
         vert_weights = np.array(
-            [w_dict[par.split("_")[-2]] for par in constants.PARAM_NAMES_SHORT],
+            [
+                w_dict[par.split("_")[-2]]
+                for par in constants.PARAM_NAMES_SHORT
+            ],
             dtype=np.float32,
         )
     print("Saving parameter weights...")
