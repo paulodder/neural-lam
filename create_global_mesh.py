@@ -14,7 +14,7 @@ from graphcast import graphcast as gc_gc
 from graphcast import grid_mesh_connectivity as gc_gm
 from graphcast import icosahedral_mesh as gc_im
 from graphcast import model_utils as gc_mu
-from src.constants import DATASETS_DIR, GRAPHS_DIR
+from bwdl.constants import DATASETS_DIR, GRAPHS_DIR
 
 
 GC_SPATIAL_FEATURES_KWARGS = {
