@@ -12,6 +12,7 @@ import xarray as xa
 
 # First-party
 from neural_lam import vis
+from bwdl.constants import DATASETS_DIR, GRAPHS_DIR
 
 
 def progress_to_sin_cos(progress):
@@ -31,7 +32,7 @@ def main():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="global_example_era5",
+        default="global_era5",
         help="Dataset to compute weights for (default: meps_example)",
     )
     parser.add_argument(
@@ -42,9 +43,9 @@ def main():
     )
     args = parser.parse_args()
 
-    fields_group_path = os.path.join("data", args.dataset, "fields.zarr")
+    fields_group_path = DATASETS_DIR / args.dataset / "fields.zarr"
     fields_group = xa.open_zarr(fields_group_path)
-    forcing_path = os.path.join("data", args.dataset, "forcing.zarr")
+    forcing_path = DATASETS_DIR / args.dataset / "forcing.zarr"
 
     # Lat-lon
     grid_lat_vals = np.array(
@@ -80,7 +81,9 @@ def main():
     toa_min = toa_array.min()
     toa_max = toa_array.max()
     toa_array = (toa_array - toa_min) / (toa_max - toa_min)
-    forcing_fields_dict["toa_incident_radiation"] = toa_array.transpose(0, 2, 1)
+    forcing_fields_dict["toa_incident_radiation"] = toa_array.transpose(
+        0, 2, 1
+    )
 
     # Year progress
     print("Generating day + year progress features")
@@ -128,7 +131,9 @@ def main():
     if args.plot:
         # (num_vars, num_time, num_lon, num_lat)
         for time_i, timestamp in enumerate(timestamps):
-            time_slice = xa_da.isel(time=time_i)  # (num_lon, num_lat, num_vars)
+            time_slice = xa_da.isel(
+                time=time_i
+            )  # (num_lon, num_lat, num_vars)
 
             for var_name in time_slice.coords["forcing_var"].data:
                 forcing_field_xa = time_slice.sel(forcing_var=var_name)
