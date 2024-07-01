@@ -87,10 +87,12 @@ PRESSURE_LEVELS = [
     925,
     1000,
 ]  # 13 levels
+
+REL_PRESSURE_LEVELS = ["50", "500", "1000"]
 PARAM_NAMES_SHORT = [
-    f"{param}{level}"
+    f"{param}_{level}"
     for param in ATMOSPHERIC_PARAMS_SHORT
-    for level in PRESSURE_LEVELS
+    for level in REL_PRESSURE_LEVELS
 ] + SURFACE_PARAMS_SHORT
 
 ATMOSPHERIC_PARAMS_UNITS = [
