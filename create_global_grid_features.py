@@ -1,6 +1,7 @@
 # Standard library
 import os
 from argparse import ArgumentParser
+import xarray as xa
 
 # Third-party
 import matplotlib.pyplot as plt
@@ -20,6 +21,9 @@ FIELD_NAMES = (
 )
 
 
+from bwdl.constants import DATASETS_DIR, GRAPHS_DIR
+
+
 def main():
     """
     Pre-compute all static features related to the grid nodes
@@ -28,9 +32,8 @@ def main():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="global_example_era5",
-        help="Dataset to create grid features for "
-        "(default: global_example_era5)",
+        default="global_era5",
+        help="Dataset to create grid features for " "(default: global_era5)",
     )
     parser.add_argument(
         "--plot",
@@ -40,10 +43,9 @@ def main():
     )
     args = parser.parse_args()
 
-    static_dir_path = os.path.join("data", args.dataset, "static")
-    fields_group_path = os.path.join("data", args.dataset, "fields.zarr")
-    fields_group = zarr.open(fields_group_path, mode="r")
-
+    static_dir_path = DATASETS_DIR / args.dataset / "static"
+    fields_group_path = DATASETS_DIR / args.dataset / "fields.zarr"
+    fields_group = xa.open_zarr(fields_group_path)
     grid_features_list = []  # Each (num_lon, num_lat) numpy array
 
     # Lat-lon
@@ -100,7 +102,9 @@ def main():
             vis.plot_prediction(feature, feature, title=field_name)
             plt.show()
 
-    torch.save(grid_features, os.path.join(static_dir_path, "grid_features.pt"))
+    torch.save(
+        grid_features, os.path.join(static_dir_path, "grid_features.pt")
+    )
 
 
 if __name__ == "__main__":
