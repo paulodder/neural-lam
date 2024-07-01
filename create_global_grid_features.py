@@ -102,9 +102,9 @@ def main():
             vis.plot_prediction(feature, feature, title=field_name)
             plt.show()
 
-    torch.save(
-        grid_features, os.path.join(static_dir_path, "grid_features.pt")
-    )
+    static_dir_path.mkdir(parents=True, exist_ok=True)
+    torch.save(grid_features, static_dir_path / "grid_features.pt")
+    print(f"Saved grid features to {static_dir_path / 'grid_features.pt'}")
 
 
 if __name__ == "__main__":
