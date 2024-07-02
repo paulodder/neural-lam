@@ -20,22 +20,21 @@ METRICS_WATCH = [
 # Format is a dictionary that maps from a variable index to
 # a list of lead time steps
 VAR_LEADS_METRICS_WATCH = {
-    7: [1, 10],  # z500
-    78: [1, 10],  # 2t
-    79: [1, 10],  # 10u
+    0: [1, 10],  # z500
+    1: [1, 10],  # 2t
 }
 
 # Plot forecasts for these variables at given lead times during validation step
 # Format is a dictionary that maps from a variable index to a list of
 # lead time steps
 VAL_PLOT_VARS = {
-    7: np.array([2, 20]),  # z500
-    22: np.array([2, 20]),  # q700
-    36: np.array([2, 20]),  # t850
-    78: np.array([2, 20]),  # 2t
-    79: np.array([2, 20]),  # 10u
-    80: np.array([2, 20]),  # 10v
-    82: np.array([2, 20]),  # tp
+    0: np.array([2, 20]),  # z500
+    1: np.array([2, 20]),  # q700
+    # 36: np.array([2, 20]),  # t850
+    # 78: np.array([2, 20]),  # 2t
+    # 79: np.array([2, 20]),  # 10u
+    # 80: np.array([2, 20]),  # 10v
+    # 82: np.array([2, 20]),  # tp
 }
 
 # During validation, plot example samples of latent variable from prior and
@@ -46,32 +45,33 @@ LATENT_SAMPLES_PLOT = 4  # Number of samples to plot
 # Keys to read from fields zarr
 ATMOSPHERIC_PARAMS = [
     "geopotential",
-    "specific_humidity",
-    "temperature",
-    "u_component_of_wind",
-    "v_component_of_wind",
-    "vertical_velocity",
+    # "specific_humidity",
+    # "temperature",
+    # "u_component_of_wind",
+    # "v_component_of_wind",
+    # "vertical_velocity",
 ]  # times 13 pressure levels = 78 params
 
 SURFACE_PARAMS = [
     "2m_temperature",
-    "10m_u_component_of_wind",
-    "10m_v_component_of_wind",
-    "mean_sea_level_pressure",
-    "total_precipitation_6hr",
+    # "10m_u_component_of_wind",
+    # "10m_v_component_of_wind",
+    # "mean_sea_level_pressure",
+    # "total_precipitation_6hr",
 ]  # = 5 params
 # Total = 83 params
 
 # Variable names
 ATMOSPHERIC_PARAMS_SHORT = [
     "z",
-    "q",
-    "t",
-    "u",
-    "v",
-    "w",
+    # "q",
+    # "t",
+    # "u",
+    # "v",
+    # "w",
 ]
-SURFACE_PARAMS_SHORT = ["2t", "10u", "10v", "msl", "tp"]
+# SURFACE_PARAMS_SHORT = ["2t", "10u", "10v", "msl", "tp"]
+SURFACE_PARAMS_SHORT = ["2t"]
 PRESSURE_LEVELS = [
     50,
     100,
@@ -89,19 +89,25 @@ PRESSURE_LEVELS = [
 ]  # 13 levels
 
 REL_PRESSURE_LEVELS = ["50", "500", "1000"]
+
 PARAM_NAMES_SHORT = [
-    f"{param}_{level}"
+    f"{param}-{level}"
     for param in ATMOSPHERIC_PARAMS_SHORT
     for level in REL_PRESSURE_LEVELS
 ] + SURFACE_PARAMS_SHORT
+PARAM_NAMES = [
+    f"{param}-{level}"
+    for param in ATMOSPHERIC_PARAMS
+    for level in REL_PRESSURE_LEVELS
+] + SURFACE_PARAMS
 
 ATMOSPHERIC_PARAMS_UNITS = [
     "m²/s²",
-    "kg/kg",
-    "K",
-    "m/s",
-    "m/s",
-    "Pa/s",
+    # "kg/kg",
+    # "K",
+    # "m/s",
+    # "m/s",
+    # "Pa/s",
 ]
 PARAM_UNITS = [
     unit for unit in ATMOSPHERIC_PARAMS_UNITS for level in PRESSURE_LEVELS
@@ -109,16 +115,16 @@ PARAM_UNITS = [
 
 # What variables (index) to plot during evaluation
 
-EVAL_PLOT_VARS = np.concatenate(
-    [
-        level_start_i
-        + np.arange(0, len(ATMOSPHERIC_PARAMS)) * len(PRESSURE_LEVELS)
-        for level_start_i in (
-            PRESSURE_LEVELS.index(level) for level in (200, 500, 850)
-        )
-    ]
-    + [np.arange(78, 83)]  # Surface
-)
+# EVAL_PLOT_VARS = np.concatenate(
+#     [
+#         level_start_i
+#         + np.arange(0, len(ATMOSPHERIC_PARAMS)) * len(REL_PRESSURE_LEVELS)
+#         for level_start_i in (
+#             REL_PRESSURE_LEVELS.index(level) for level in ("50", "500", "1000")
+#         )
+#     ]
+#     + [np.arange(78, 83)]  # Surface
+# )
 
 # Projection and grid
 GRID_SHAPE = (240, 121)  # (long, lat)
@@ -133,10 +139,14 @@ GRID_LIMITS = [
 ]
 
 # Time step length (hours)
-TIME_STEP_LENGTH = 6
+TIME_STEP_LENGTH = 24
 
 # Data dimensions
 GRID_ORIGINAL_FORCING_DIM = 5  # 5 features
 GRID_FORCING_DIM = GRID_ORIGINAL_FORCING_DIM * 3
 # 5 features for 3 time-step window
+# GRID_STATE_DIM = 6 * 13 + 5  # 83
 GRID_STATE_DIM = 6 * 13 + 5  # 83
+
+# just testing, 3 atm and one surface
+GRID_STATE_DIM = 4

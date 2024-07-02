@@ -54,7 +54,9 @@ class BaseGraphModel(ARModel):
         self.m2g_embedder = utils.make_mlp([m2g_dim] + self.mlp_blueprint_end)
 
         # GNNs
-        gnn_class = PropagationNet if args.vertical_propnets else InteractionNet
+        gnn_class = (
+            PropagationNet if args.vertical_propnets else InteractionNet
+        )
         # encoder
         self.g2m_gnn = gnn_class(
             self.g2m_edge_index,
@@ -125,8 +127,10 @@ class BaseGraphModel(ARModel):
             dim=-1,
         )
 
-        # Embed all features
-        grid_emb = self.grid_embedder(grid_features)  # (B, num_grid_nodes, d_h)
+        # Embed all featupres
+        grid_emb = self.grid_embedder(
+            grid_features
+        )  # (B, num_grid_nodes, d_h)
         g2m_emb = self.g2m_embedder(self.g2m_features)  # (M_g2m, d_h)
         m2g_emb = self.m2g_embedder(self.m2g_features)  # (M_m2g, d_h)
         mesh_emb = self.embedd_mesh_nodes()

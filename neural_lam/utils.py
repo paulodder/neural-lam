@@ -11,7 +11,7 @@ from tueplots import bundles, figsizes
 # First-party
 from neural_lam import constants
 from neural_lam.interaction_net import InteractionNet
-from bwdl.constants import DATASETS_DIR
+from bwdl.constants import DATASETS_DIR, GRAPHS_DIR
 
 
 def load_dataset_stats(dataset_name, device="cpu"):
@@ -45,7 +45,7 @@ def load_static_data(dataset_name, device="cpu"):
     """
     Load static files related to dataset
     """
-    static_dir_path = os.path.join("data", dataset_name, "static")
+    static_dir_path = DATASETS_DIR / dataset_name / "static"
 
     def loads_file(fn):
         return torch.load(
@@ -136,7 +136,7 @@ def load_graph(graph_name, device="cpu"):
     Load all tensors representing the graph
     """
     # Define helper lambda function
-    graph_dir_path = os.path.join("graphs", graph_name)
+    graph_dir_path = GRAPHS_DIR / graph_name
 
     def loads_file(fn):
         return torch.load(

@@ -28,8 +28,9 @@ class ERA5Dataset(Dataset):
         self.standardize = standardize
 
         fields_xds, forcing_xda = self._load_data(dataset_name)
-        self.atm_vars, self.surface_vars = self._filter_variables(variables)
 
+        self.atm_vars, self.surface_vars = self._filter_variables(variables)
+        # breakpoint()
         split_slice = self._get_split_slice(dataset_name, split, expanded_test)
         fields_ds_split = fields_xds.sel(time=split_slice)
         forcing_ds_split = forcing_xda.sel(time=split_slice)
@@ -104,9 +105,9 @@ class ERA5Dataset(Dataset):
             ds_stats = utils.load_dataset_stats(dataset_name, "cpu")
             self.data_mean = ds_stats["data_mean"]
             self.data_std = ds_stats["data_std"]
-            selected_vars = self.atm_vars + self.surface_vars
-            self.data_mean = self.data_mean[selected_vars]
-            self.data_std = self.data_std[selected_vars]
+            # selected_vars = self.atm_vars + self.surface_vars
+            self.data_mean = self.data_mean
+            self.data_std = self.data_std
 
     def _setup_data_arrays(
         self, fields_ds_split: xa.Dataset, forcing_ds_split: xa.DataArray
