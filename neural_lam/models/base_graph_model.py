@@ -214,7 +214,7 @@ class BaseGraphModel(ARModel):
             ):
 
                 for var_i, timesteps in self.val_plot_vars.items():
-                    var_name = constants.PARAM_NAMES_SHORT[var_i]
+                    var_name = constants.PARAM_NAMES[var_i]
                     var_unit = constants.PARAM_UNITS[var_i]
                     for step in timesteps:
                         pred_state = pred_traj[step - 1, :, var_i]
