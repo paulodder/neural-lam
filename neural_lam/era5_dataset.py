@@ -178,10 +178,10 @@ class ERA5Dataset(Dataset):
         self, idx: int
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         if self.init_all:
-            init_i = self.step_size * (idx + 1)  # s = idx+1
+            init_i = idx + self.step_size  # s = idx+1
         else:
             # Only initialize at 00/12 UTC timesteps
-            init_i = self.step_size * (1 + idx * 2)  # s = 1 + 2idx
+            init_i = self.step_size + idx * 2  # s = 1 + 2idx
         sample_slice = slice(
             init_i - self.step_size,
             init_i + ((self.pred_length + 1) * self.step_size),

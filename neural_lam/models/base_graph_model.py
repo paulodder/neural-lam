@@ -214,26 +214,27 @@ class BaseGraphModel(ARModel):
             ):
 
                 for var_i, timesteps in self.val_plot_vars.items():
-                    var_name = constants.PARAM_NAMES[var_i]
-                    var_unit = constants.PARAM_UNITS[var_i]
-                    for step in timesteps:
-                        pred_state = pred_traj[step - 1, :, var_i]
-                        target_state = target_traj[step - 1, :, var_i]
-                        # both (num_grid_nodes,)
-                        plot_title = (
-                            f"{var_name} ({var_unit}), t={step} "
-                            f"({self.step_length*step} h)"
-                        )
+                    pass
+                    # var_name = constants.PARAM_NAMES[var_i]
+                    # var_unit = constants.PARAM_UNITS[var_i]
+                    # for step in timesteps:
+                    #     pred_state = pred_traj[step - 1, :, var_i]
+                    #     target_state = target_traj[step - 1, :, var_i]
+                    #     # both (num_grid_nodes,)
+                    #     plot_title = (
+                    #         f"{var_name} ({var_unit}), t={step} "
+                    #         f"({self.step_length*step} h)"
+                    #     )
 
-                        # Make plots
-                        log_plot_dict[
-                            f"{var_name}_step_{step}_ex{example_i}"
-                        ] = vis.plot_prediction(
-                            pred_state,
-                            target_state,
-                            self.interior_mask[:, 0],
-                            title=plot_title,
-                        )
+                    # Make plots
+                    # log_plot_dict[
+                    #     f"{var_name}_step_{step}_ex{example_i}"
+                    # ] = vis.plot_prediction(
+                    #     pred_state,
+                    #     target_state,
+                    #     self.interior_mask[:, 0],
+                    #     title=plot_title,
+                    # )
 
             if not self.trainer.sanity_checking:
                 # Log all plots to wandb
