@@ -45,15 +45,19 @@ LATENT_SAMPLES_PLOT = 4  # Number of samples to plot
 # Keys to read from fields zarr
 ATMOSPHERIC_PARAMS = [
     "geopotential",
-    # "specific_humidity",
-    # "temperature",
-    # "u_component_of_wind",
-    # "v_component_of_wind",
-    # "vertical_velocity",
+    # "geopotential_height",
+    "specific_humidity",
+    "temperature",
+    # "potential_vorticity"
 ]  # times 13 pressure levels = 78 params
 
 SURFACE_PARAMS = [
     "2m_temperature",
+    "sea_surface_temperature",
+    "sea_ice_cover",
+    "snow_depth",
+    "volumetric_soil_water_layer_2",
+    "volumetric_soil_water_layer_3",
     # "10m_u_component_of_wind",
     # "10m_v_component_of_wind",
     # "mean_sea_level_pressure",
@@ -64,37 +68,22 @@ SURFACE_PARAMS = [
 # Variable names
 ATMOSPHERIC_PARAMS_SHORT = [
     "z",
-    # "q",
-    # "t",
+    "q",
+    "t",
     # "u",
     # "v",
     # "w",
 ]
 # SURFACE_PARAMS_SHORT = ["2t", "10u", "10v", "msl", "tp"]
-SURFACE_PARAMS_SHORT = ["2t"]
-PRESSURE_LEVELS = [
-    50,
-    100,
-    150,
-    200,
-    250,
-    300,
-    400,
-    500,
-    600,
-    700,
-    850,
-    925,
-    1000,
-]  # 13 levels
+# SURFACE_PARAMS_SHORT = ["2t"]
 
-REL_PRESSURE_LEVELS = ["50", "500", "1000"]
+REL_PRESSURE_LEVELS = ["50", "100", "300", "500", "1000"]
 
-PARAM_NAMES_SHORT = [
-    f"{param}-{level}"
-    for param in ATMOSPHERIC_PARAMS_SHORT
-    for level in REL_PRESSURE_LEVELS
-] + SURFACE_PARAMS_SHORT
+# PARAM_NAMES_SHORT = [
+#     f"{param}-{level}"
+#     for param in ATMOSPHERIC_PARAMS_SHORT
+#     for level in REL_PRESSURE_LEVELS
+# ] + SURFACE_PARAMS_SHORT
 PARAM_NAMES = [
     f"{param}-{level}"
     for param in ATMOSPHERIC_PARAMS
@@ -127,7 +116,7 @@ PARAM_UNITS = [
 # )
 
 # Projection and grid
-GRID_SHAPE = (240, 121)  # (long, lat)
+GRID_SHAPE = (180, 90)  # (long, lat)
 
 # Create projection
 MAP_PROJ = cartopy.crs.Robinson()
