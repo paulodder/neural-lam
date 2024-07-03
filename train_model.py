@@ -36,7 +36,7 @@ def main():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="meps_example",
+        default="global_era5",
         help="Dataset, corresponding to name in data directory "
         "(default: meps_example)",
     )
@@ -309,10 +309,10 @@ def main():
 
     train_loader = torch.utils.data.DataLoader(
         ds_class(
-            args.dataset,
+            variables=constants.PARAM_NAMES,
+            dataset_name=args.dataset,
             pred_length=args.ar_steps,
             split="train",
-            subsample_step=args.step_length,
         ),
         args.batch_size,
         shuffle=True,
@@ -320,10 +320,10 @@ def main():
     )
     val_loader = torch.utils.data.DataLoader(
         ds_class(
-            args.dataset,
+            variables=constants.PARAM_NAMES,
+            dataset_name=args.dataset,
             pred_length=args.eval_leads,
             split="val",
-            subsample_step=args.step_length,
         ),
         args.batch_size,
         shuffle=False,

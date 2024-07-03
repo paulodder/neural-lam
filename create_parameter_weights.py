@@ -13,7 +13,7 @@ from tqdm import tqdm
 from neural_lam import constants
 from neural_lam.era5_dataset import ERA5Dataset
 from neural_lam.weather_dataset import WeatherDataset
-from bwdl.constants import DATA_DIR
+from bwdl.constants import DATASETS_DIR
 
 
 def main():
@@ -24,13 +24,13 @@ def main():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="meps_example",
+        default="global_era5",
         help="Dataset to compute weights for (default: meps_example)",
     )
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=32,
+        default=4,
         help="Batch size when iterating over the dataset",
     )
     parser.add_argument(
@@ -48,13 +48,15 @@ def main():
     )
     args = parser.parse_args()
 
-    static_dir_path = DATA_DIR / args.dataset / "static"
+    static_dir_path = DATASETS_DIR / args.dataset / "static"
     global_ds = "global" in args.dataset
 
-    if global_ds:
+    if True:
         # Follow approach of GraphCast, giving vertical levels weight
         # proportional to pressure, and hand-design for surface vars
-        pres_levels_np = np.array(constants.PRESSURE_LEVELS, dtype=np.float32)
+        pres_levels_np = np.array(
+            constants.REL_PRESSURE_LEVELS, dtype=np.float32
+        )
         # Weighting for one variable at all pressure levels sum to 1
         pres_levels_norm = pres_levels_np / pres_levels_np.sum()  # (num_vert,)
         atm_weights = np.tile(
@@ -68,11 +70,12 @@ def main():
             ],
             dtype=np.float32,
         )  # (num_surf,)
+
         vert_weights = np.concatenate((atm_weights, surface_weights), axis=0)
         # (num_variables,)
 
         # Compute spatial weighting for grid nodes
-        fields_group_path = DATA_DIR / args.dataset / "fields.zarr"
+        fields_group_path = DATASETS_DIR / args.dataset / "fields.zarr"
         xds = xa.open_zarr(fields_group_path)
         # Hack since GC code uses "lat" for some reason
         xds = xds.assign_coords({"lat": xds.coords["latitude"]})
@@ -99,11 +102,9 @@ def main():
             "850": 0.05,
             "500": 0.03,
         }
+        # breakpoint()
         vert_weights = np.array(
-            [
-                w_dict[par.split("_")[-2]]
-                for par in constants.PARAM_NAMES_SHORT
-            ],
+            [w_dict[par.split("-")[-1]] for par in constants.PARAM_NAMES],
             dtype=np.float32,
         )
     print("Saving parameter weights...")
@@ -114,7 +115,8 @@ def main():
     # Load dataset without any subsampling
     if global_ds:
         ds = ERA5Dataset(
-            args.dataset,
+            variables=constants.PARAM_NAMES,
+            dataset_name=args.dataset,
             split="train",
             pred_length=1,  # Use 1 to get each time step only once
             standardize=False,
@@ -137,7 +139,11 @@ def main():
     squares = []
     flux_means = []
     flux_squares = []
+    i = 0
     for init_batch, target_batch, forcing_batch in tqdm(loader):
+        i += 1
+        if i > 2:
+            break
         if global_ds:
             batch = target_batch  # (N_batch, N_t=1, N_grid, d_features)
         else:
@@ -175,7 +181,8 @@ def main():
     # Re-load dataset with standardization
     if global_ds:
         ds_standard = ERA5Dataset(
-            args.dataset,
+            variables=constants.PARAM_NAMES,
+            dataset_name=args.dataset,
             split="train",
             pred_length=1,  # Use 1 to get each time step only once
             standardize=True,
@@ -190,12 +197,19 @@ def main():
         )
         used_subsample_len = (65 // args.step_length) * args.step_length
     loader_standard = torch.utils.data.DataLoader(
-        ds_standard, args.batch_size, shuffle=False, num_workers=args.n_workers
+        ds_standard,
+        args.batch_size,
+        shuffle=False,
+        num_workers=args.n_workers,
     )
 
     diff_means = []
     diff_squares = []
+    i = 0
     for init_batch, target_batch, _ in tqdm(loader_standard):
+        i += 1
+        if i > 2:
+            break
         batch = torch.cat(
             (init_batch, target_batch), dim=1
         )  # (N_batch, N_t', N_grid, d_features)
