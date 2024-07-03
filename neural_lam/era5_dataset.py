@@ -17,7 +17,6 @@ class ERA5Dataset(Dataset):
     def __init__(
         self,
         dataset_config,
-        variables: List[str],
         pred_length: int = 40,
         split: str = "train",
         standardize: bool = True,
@@ -25,11 +24,14 @@ class ERA5Dataset(Dataset):
     ):
         super().__init__()
         self._validate_split(split)
+        variables = constants.PARAM_NAMES
+        self.step_size = self._get_step_size(dataset_config.rolling_mean)
         self.pred_length = pred_length
         self.standardize = standardize
+        self.dataset_config = dataset_config
         dataset_name = dataset_config.name
-        fields_xds, forcing_xda = self._load_data(dataset_name)
 
+        fields_xds, forcing_xda = self._load_data(dataset_name)
         self.atm_vars, self.surface_vars = self._filter_variables(variables)
         # breakpoint()
         split_slice = self._get_split_slice(dataset_name, split, expanded_test)
@@ -90,7 +92,9 @@ class ERA5Dataset(Dataset):
         return split_slices[split]
 
     def _setup_dataset_length(self, split: str, timesteps_in_split: int):
-        ds_timesteps = timesteps_in_split - 1 - self.pred_length
+        ds_timesteps = (
+            timesteps_in_split - 1 - self.pred_length - (2 * self.step_size)
+        )
         if ds_timesteps <= 0:
             raise ValueError("Dataset too small for given pred_length")
 
@@ -159,18 +163,75 @@ class ERA5Dataset(Dataset):
     def __len__(self) -> int:
         return self.ds_len
 
+    def _get_step_size(self, rolling_mean: str) -> int:
+        """Determine the step size based on the rolling mean."""
+        if rolling_mean == "1d":
+            return 1
+        elif rolling_mean == "3d":
+            return 3
+        elif rolling_mean == "1w":
+            return 7
+        else:
+            raise ValueError(f"Unsupported rolling mean: {rolling_mean}")
+
     def __getitem__(
         self, idx: int
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        init_i = idx + 1 if self.init_all else 1 + idx * 2
-        sample_slice = slice(init_i - 1, init_i + self.pred_length + 1)
+        if self.init_all:
+            init_i = self.step_size * (idx + 1)  # s = idx+1
+        else:
+            # Only initialize at 00/12 UTC timesteps
+            init_i = self.step_size * (1 + idx * 2)  # s = 1 + 2idx
+        sample_slice = slice(
+            init_i - self.step_size,
+            init_i + ((self.pred_length + 1) * self.step_size),
+            self.step_size,
+        )
         full_series_len = self.pred_length + 2
+
+        # if self.init_all:
+        #     init_i = self.step_size * (idx + 1)
+        # else:
+        #     init_i = 1 + idx * 2 * self.step_size
+
+        # sample_slice = slice(
+        #     init_i - self.step_size,
+        #     init_i + (self.pred_length + 1) * self.step_size,
+        #     self.step_size,
+        # )
+        # full_series_len = self.pred_length + 2
 
         full_state_torch = self._get_full_state(sample_slice, full_series_len)
         init_states, target_states = self._split_states(full_state_torch)
         forcing_torch = self._get_forcing(sample_slice, full_series_len)
 
         return init_states, target_states, forcing_torch
+
+    # def __getitem__(
+    #     self, idx: int
+    # ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    #     init_i = idx + 1 if self.init_all else 1 + idx * 2
+    #     sample_slice = slice(init_i - 1, init_i + self.pred_length + 1)
+    #     full_series_len = self.pred_length + 2
+
+    #     full_state_torch = self._get_full_state(sample_slice, full_series_len)
+    #     init_states, target_states = self._split_states(full_state_torch)
+    #     forcing_torch = self._get_forcing(sample_slice, full_series_len)
+
+    #     return init_states, target_states, forcing_torch
+
+    # def __getitem__(
+    #     self, idx: int
+    # ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    #     init_i = idx + 1 if self.init_all else 1 + idx * 2
+    #     sample_slice = slice(init_i - 1, init_i + self.pred_length + 1)
+    #     full_series_len = self.pred_length + 2
+
+    #     full_state_torch = self._get_full_state(sample_slice, full_series_len)
+    #     init_states, target_states = self._split_states(full_state_torch)
+    #     forcing_torch = self._get_forcing(sample_slice, full_series_len)
+
+    #     return init_states, target_states, forcing_torch
 
     def _get_full_state(
         self, sample_slice: slice, full_series_len: int

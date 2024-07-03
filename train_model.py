@@ -16,6 +16,7 @@ from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.weather_dataset import WeatherDataset
+from bwdl.named_configs import DatasetConfig, GlobalMeshConfig
 
 MODELS = {
     "graphcast": GraphCast,
@@ -24,10 +25,7 @@ MODELS = {
 }
 
 
-def main():
-    """
-    Main function for training and evaluating models
-    """
+def parse_args():
     parser = ArgumentParser(
         description="Train or evaluate NeurWP models for LAM"
     )
@@ -285,7 +283,16 @@ def main():
         help="Number of ensemble members during evaluation (default: 5)",
     )
     args = parser.parse_args()
+    return args
 
+
+def main():
+    """
+    Main function for training and evaluating models
+    """
+    args = parse_args()
+    dataset_config = DatasetConfig.from_args(args)
+    global_mesh_config = GlobalMeshConfig.from_args(args)
     # Asserts for arguments
     assert args.model in MODELS, f"Unknown model: {args.model}"
     assert args.eval in (
@@ -301,16 +308,10 @@ def main():
     seed.seed_everything(args.seed)
 
     # Load data
-    if args.dataset.startswith("global"):
-        ds_class = ERA5Dataset
-    else:  # LAM
-        assert args.step_length <= 3, "Too high step length"
-        ds_class = WeatherDataset
 
     train_loader = torch.utils.data.DataLoader(
-        ds_class(
-            variables=constants.PARAM_NAMES,
-            dataset_name=args.dataset,
+        ERA5Dataset(
+            dataset_config,
             pred_length=args.ar_steps,
             split="train",
         ),
@@ -319,9 +320,8 @@ def main():
         num_workers=args.n_workers,
     )
     val_loader = torch.utils.data.DataLoader(
-        ds_class(
-            variables=constants.PARAM_NAMES,
-            dataset_name=args.dataset,
+        ERA5Dataset(
+            dataset_config,
             pred_length=args.eval_leads,
             split="val",
         ),
@@ -415,8 +415,8 @@ def main():
             eval_loader = val_loader
         else:  # Test
             eval_loader = torch.utils.data.DataLoader(
-                ds_class(
-                    args.dataset,
+                ERA5Dataset(
+                    dataset_config,
                     pred_length=args.eval_leads,
                     split="test",
                     subsample_step=args.step_length,

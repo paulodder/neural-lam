@@ -99,7 +99,7 @@ ATMOSPHERIC_PARAMS_UNITS = [
     # "Pa/s",
 ]
 PARAM_UNITS = [
-    unit for unit in ATMOSPHERIC_PARAMS_UNITS for level in PRESSURE_LEVELS
+    unit for unit in ATMOSPHERIC_PARAMS_UNITS for level in REL_PRESSURE_LEVELS
 ] + ["K", "m/s", "m/s", "Pa", "m"]
 
 # What variables (index) to plot during evaluation
