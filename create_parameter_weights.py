@@ -154,13 +154,7 @@ def main():
         squares.append(
             torch.mean(batch**2, dim=(1, 2))
         )  # (N_batch, d_features,)
-
-        if not global_ds:
-            # Flux at 1st windowed position is index 1 in forcing
-            flux_batch = forcing_batch[:, :, :, 1]
-            flux_means.append(torch.mean(flux_batch))  # (,)
-            flux_squares.append(torch.mean(flux_batch**2))  # (,)
-
+        break
     mean = torch.mean(torch.cat(means, dim=0), dim=0)  # (d_features)
     second_moment = torch.mean(torch.cat(squares, dim=0), dim=0)
     std = torch.sqrt(second_moment - mean**2)  # (d_features)
@@ -214,20 +208,8 @@ def main():
             (init_batch, target_batch), dim=1
         )  # (N_batch, N_t', N_grid, d_features)
 
-        if global_ds:
-            # Only extract state at init time and target at next time
-            stepped_batch = batch[:, 1:]  # (N_batch, 2, N_grid, d_features)
-        else:
-            # Note: batch contains only 1h-steps
-            stepped_batch = torch.cat(
-                [
-                    batch[:, ss_i : used_subsample_len : args.step_length]
-                    for ss_i in range(args.step_length)
-                ],
-                dim=0,
-            )
-            # (N_batch', N_t, N_grid, d_features),
-            # N_batch' = args.step_length*N_batch
+        # Only extract state at init time and target at next time
+        stepped_batch = batch[:, 1:]  # (N_batch, 2, N_grid, d_features)
 
         batch_diffs = stepped_batch[:, 1:] - stepped_batch[:, :-1]
         # (N_batch', N_t-1, N_grid, d_features)
@@ -238,7 +220,7 @@ def main():
         diff_squares.append(
             torch.mean(batch_diffs**2, dim=(1, 2))
         )  # (N_batch', d_features,)
-
+        break
     diff_mean = torch.mean(torch.cat(diff_means, dim=0), dim=0)  # (d_features)
     diff_second_moment = torch.mean(torch.cat(diff_squares, dim=0), dim=0)
     diff_std = torch.sqrt(diff_second_moment - diff_mean**2)  # (d_features)

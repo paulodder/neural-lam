@@ -34,14 +34,14 @@ def parse_args():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="global_era5",
+        default="era5_1.5_1d",
         help="Dataset, corresponding to name in data directory "
         "(default: meps_example)",
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="graph_lam",
+        default="graphcast",
         help="Model architecture to train/evaluate (default: graph_lam)",
     )
     parser.add_argument(
@@ -60,7 +60,25 @@ def parse_args():
         help="upper epoch limit (default: 200)",
     )
     parser.add_argument(
-        "--batch_size", type=int, default=4, help="batch size (default: 4)"
+        "--levels",
+        type=int,
+        help="Number of levels (in mehs) to keep, from finest upwards "
+        "(default: None (keep all))",
+    )
+    parser.add_argument(
+        "--hierarchical",
+        type=int,
+        default=0,
+        help="Use hierarchical mesh graph (default: 0, no)",
+    )
+    parser.add_argument(
+        "--splits",
+        default=3,
+        type=int,
+        help="Number of splits to triangular mesh (default: 3)",
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=1, help="batch size (default: 4)"
     )
     parser.add_argument(
         "--load",
@@ -291,7 +309,7 @@ def main():
     Main function for training and evaluating models
     """
     args = parse_args()
-    dataset_config = DatasetConfig.from_args(args)
+    dataset_config = DatasetConfig.from_name(args.dataset)
     global_mesh_config = GlobalMeshConfig.from_args(args)
     # Asserts for arguments
     assert args.model in MODELS, f"Unknown model: {args.model}"
@@ -331,7 +349,7 @@ def main():
     )
 
     # Instantiate model + trainer
-    if torch.cuda.is_available():
+    if False:  # torch.cuda.is_available():
         device_name = "cuda"
         torch.set_float32_matmul_precision(
             "high"
@@ -348,7 +366,7 @@ def main():
             # Unclear if this works for multi-GPU
             model.opt_state = torch.load(args.load)["optimizer_states"][0]
     else:
-        model = model_class(args)
+        model = model_class(args, global_mesh_config)
 
     prefix = ""
     if args.eval:
@@ -384,9 +402,9 @@ def main():
                 mode="min",
             )
         )
-    logger = pl.loggers.WandbLogger(
-        project=constants.WANDB_PROJECT, name=run_name, config=args
-    )
+    # logger = pl.loggers.WandbLogger(
+    #     project=constants.WANDB_PROJECT, name=run_name, config=args
+    # )
 
     # Training strategy
     # If doing pure autoencoder training (kl_beta = 0), the prior network is not
@@ -398,7 +416,7 @@ def main():
         deterministic=True,
         strategy=strategy,
         accelerator=device_name,
-        logger=logger,
+        # logger=logger,
         log_every_n_steps=1,
         callbacks=callbacks,
         check_val_every_n_epoch=args.val_interval,
@@ -407,8 +425,8 @@ def main():
     )
 
     # Only init once, on rank 0 only
-    if trainer.global_rank == 0:
-        utils.init_wandb_metrics(logger)  # Do after wandb.init
+    # if trainer.global_rank == 0:
+    #     utils.init_wandb_metrics(logger)  # Do after wandb.init
 
     if args.eval:
         if args.eval == "val":

@@ -138,4 +138,4 @@ GRID_FORCING_DIM = GRID_ORIGINAL_FORCING_DIM * 3
 GRID_STATE_DIM = 6 * 13 + 5  # 83
 
 # just testing, 3 atm and one surface
-GRID_STATE_DIM = 4
+GRID_STATE_DIM = len(PARAM_NAMES)

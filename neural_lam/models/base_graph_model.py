@@ -15,7 +15,7 @@ class BaseGraphModel(ARModel):
     the encode-process-decode idea.
     """
 
-    def __init__(self, args):
+    def __init__(self, args, global_mesh_config):
         super().__init__(args)
 
         assert (
@@ -25,7 +25,7 @@ class BaseGraphModel(ARModel):
         # Load graph with static features
         # NOTE: (IMPORTANT!) mesh nodes MUST have the first
         # num_mesh_nodes indices,
-        self.hierarchical, graph_ldict = utils.load_graph(args.graph)
+        self.hierarchical, graph_ldict = utils.load_graph(global_mesh_config)
         for name, attr_value in graph_ldict.items():
             # Make BufferLists module members and register tensors as buffers
             if isinstance(attr_value, torch.Tensor):

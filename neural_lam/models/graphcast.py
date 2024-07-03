@@ -14,8 +14,8 @@ class GraphCast(BaseGraphModel):
     Keisler (2022) is almost identical.
     """
 
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, global_mesh_config):
+        super().__init__(args, global_mesh_config)
 
         assert (
             not self.hierarchical
@@ -31,7 +31,9 @@ class GraphCast(BaseGraphModel):
 
         # Define sub-models
         # Feature embedders for mesh
-        self.mesh_embedder = utils.make_mlp([mesh_dim] + self.mlp_blueprint_end)
+        self.mesh_embedder = utils.make_mlp(
+            [mesh_dim] + self.mlp_blueprint_end
+        )
         self.m2m_embedder = utils.make_mlp([m2m_dim] + self.mlp_blueprint_end)
 
         # GNNs

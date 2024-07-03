@@ -131,12 +131,12 @@ class BufferList(nn.Module):
         return (self[i] for i in range(len(self)))
 
 
-def load_graph(graph_name, device="cpu"):
+def load_graph(global_mesh_config, device="cpu"):
     """
     Load all tensors representing the graph
     """
     # Define helper lambda function
-    graph_dir_path = GRAPHS_DIR / graph_name
+    graph_dir_path = GRAPHS_DIR / global_mesh_config.name
 
     def loads_file(fn):
         return torch.load(
