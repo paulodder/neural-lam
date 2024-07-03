@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 
 from neural_lam import constants, utils
 from bwdl.constants import DATA_DIR
+from bwdl.named_configs import DatasetConfig
 
 
 class ERA5Dataset(Dataset):
@@ -15,7 +16,7 @@ class ERA5Dataset(Dataset):
 
     def __init__(
         self,
-        dataset_name: str,
+        dataset_config,
         variables: List[str],
         pred_length: int = 40,
         split: str = "train",
@@ -26,7 +27,7 @@ class ERA5Dataset(Dataset):
         self._validate_split(split)
         self.pred_length = pred_length
         self.standardize = standardize
-
+        dataset_name = dataset_config.name
         fields_xds, forcing_xda = self._load_data(dataset_name)
 
         self.atm_vars, self.surface_vars = self._filter_variables(variables)
