@@ -51,13 +51,9 @@ class ERA5Dataset(Dataset):
     def _load_data(self, dataset_name: str) -> Tuple[xa.Dataset, xa.DataArray]:
         fields_path = DATA_DIR / "datasets" / dataset_name / "fields.zarr"
         forcing_path = DATA_DIR / "datasets" / dataset_name / "forcing.zarr"
-        return xa.open_zarr(fields_path), xa.open_dataarray(
-            forcing_path, engine="zarr"
-        )
+        return xa.open_zarr(fields_path), xa.open_dataarray(forcing_path, engine="zarr")
 
-    def _filter_variables(
-        self, variables: List[str]
-    ) -> Tuple[List[str], List[str]]:
+    def _filter_variables(self, variables: List[str]) -> Tuple[List[str], List[str]]:
         return [var for var in variables if "-" in var], [
             var for var in variables if "-" not in var
         ]
@@ -67,19 +63,18 @@ class ERA5Dataset(Dataset):
     ) -> slice:
         if "example" in dataset_name:
             return self._get_example_split_slice(split)
-        return self._get_actual_split_slice(split, expanded_test)
+        return self._get_example_split_slice(split)
+        # return self._get_actual_split_slice(split, expanded_test)
 
     def _get_example_split_slice(self, split: str) -> slice:
         split_slices = {
-            "train": slice("1959-01-01T12", "1959-01-03T12"),
-            "val": slice("1959-01-03T18", "1959-01-04T18"),
-            "test": slice("1959-01-03T18", "1959-01-04T18"),
+            "train": slice("2010-01-01T12", "2011-01-03T12"),
+            "val": slice("2010-01-01T12", "2011-01-03T12"),
+            "test": slice("2011-01-01T12", "2012-01-03T12"),
         }
         return split_slices[split]
 
-    def _get_actual_split_slice(
-        self, split: str, expanded_test: bool
-    ) -> slice:
+    def _get_actual_split_slice(self, split: str, expanded_test: bool) -> slice:
         split_slices = {
             "train": slice("1959-01-01T12", "2017-12-31T12"),
             "val": slice("2017-12-31T18", "2019-12-31T12"),
@@ -92,9 +87,8 @@ class ERA5Dataset(Dataset):
         return split_slices[split]
 
     def _setup_dataset_length(self, split: str, timesteps_in_split: int):
-        ds_timesteps = (
-            timesteps_in_split - 1 - self.pred_length - (2 * self.step_size)
-        )
+        ds_timesteps = timesteps_in_split - 1 - self.pred_length - (2 * self.step_size)
+        breakpoint()
         if ds_timesteps <= 0:
             raise ValueError("Dataset too small for given pred_length")
 
@@ -117,9 +111,7 @@ class ERA5Dataset(Dataset):
     def _setup_data_arrays(
         self, fields_ds_split: xa.Dataset, forcing_ds_split: xa.DataArray
     ):
-        self.atm_xda, self.atm_total_dim = self._setup_atm_data(
-            fields_ds_split
-        )
+        self.atm_xda, self.atm_total_dim = self._setup_atm_data(fields_ds_split)
         self.surface_xda, self.surface_total_dim = self._setup_surface_data(
             fields_ds_split
         )
@@ -128,9 +120,7 @@ class ERA5Dataset(Dataset):
         if self.atm_total_dim == 0 and self.surface_total_dim == 0:
             raise ValueError("No variables selected")
 
-    def _setup_atm_data(
-        self, fields_ds_split: xa.Dataset
-    ) -> Tuple[xa.DataArray, int]:
+    def _setup_atm_data(self, fields_ds_split: xa.Dataset) -> Tuple[xa.DataArray, int]:
         if not self.atm_vars:
             return None, 0
 
@@ -174,9 +164,7 @@ class ERA5Dataset(Dataset):
         else:
             raise ValueError(f"Unsupported rolling mean: {rolling_mean}")
 
-    def __getitem__(
-        self, idx: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         if self.init_all:
             init_i = idx + self.step_size  # s = idx+1
         else:
@@ -237,9 +225,7 @@ class ERA5Dataset(Dataset):
         self, sample_slice: slice, full_series_len: int
     ) -> torch.Tensor:
         atm_sample_np = (
-            self.atm_xda[sample_slice].to_numpy()
-            if self.atm_xda is not None
-            else None
+            self.atm_xda[sample_slice].to_numpy() if self.atm_xda is not None else None
         )
         surface_sample_np = (
             self.surface_xda[sample_slice].to_numpy()
@@ -253,9 +239,7 @@ class ERA5Dataset(Dataset):
         full_state_torch = torch.tensor(full_state_np, dtype=torch.float32)
 
         if self.standardize:
-            full_state_torch = (
-                full_state_torch - self.data_mean
-            ) / self.data_std
+            full_state_torch = (full_state_torch - self.data_mean) / self.data_std
 
         return full_state_torch
 
@@ -286,13 +270,9 @@ class ERA5Dataset(Dataset):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         return full_state_torch[:2], full_state_torch[2:]
 
-    def _get_forcing(
-        self, sample_slice: slice, full_series_len: int
-    ) -> torch.Tensor:
+    def _get_forcing(self, sample_slice: slice, full_series_len: int) -> torch.Tensor:
         forcing_np = self.forcing_xda[sample_slice].to_numpy()
-        forcing_flat_np = forcing_np.reshape(
-            full_series_len, -1, forcing_np.shape[-1]
-        )
+        forcing_flat_np = forcing_np.reshape(full_series_len, -1, forcing_np.shape[-1])
         forcing_windowed = np.concatenate(
             (forcing_flat_np[:-2], forcing_flat_np[1:-1], forcing_flat_np[2:]),
             axis=2,
