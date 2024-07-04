@@ -295,8 +295,9 @@ class ERA5Dataset(Dataset):
     def _get_forcing(
         self, sample_slice: slice, full_series_len: int
     ) -> torch.Tensor:
-        forcing_np = self.forcing_xda[sample_slice]
-        forcing_np = torch.nan_to_num(forcing_np).to_numpy()
+        forcing_np = self.forcing_xda[sample_slice].to_numpy()
+        # replace np.nan with 0
+        forcing_np = np.nan_to_num(forcing_np)
         forcing_flat_np = forcing_np.reshape(
             full_series_len, -1, forcing_np.shape[-1]
         )
