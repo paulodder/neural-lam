@@ -206,6 +206,8 @@ class ERA5Dataset(Dataset):
         # full_series_len = self.pred_length + 2
 
         full_state_torch = self._get_full_state(sample_slice, full_series_len)
+        # replace np.nan with 0
+        full_state_torch = torch.nan_to_num(full_state_torch)
         init_states, target_states = self._split_states(full_state_torch)
         forcing_torch = self._get_forcing(sample_slice, full_series_len)
 
