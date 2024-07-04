@@ -67,13 +67,14 @@ class ERA5Dataset(Dataset):
     ) -> slice:
         if "example" in dataset_name:
             return self._get_example_split_slice(split)
+        # return self._get_example_split_slice(split)
         return self._get_actual_split_slice(split, expanded_test)
 
     def _get_example_split_slice(self, split: str) -> slice:
         split_slices = {
-            "train": slice("1959-01-01T12", "1959-01-03T12"),
-            "val": slice("1959-01-03T18", "1959-01-04T18"),
-            "test": slice("1959-01-03T18", "1959-01-04T18"),
+            "train": slice("2000-01-01T12", "2001-01-03T12"),
+            "val": slice("2000-01-01T12", "2001-01-03T12"),
+            "test": slice("2001-01-01T12", "2002-01-03T12"),
         }
         return split_slices[split]
 
