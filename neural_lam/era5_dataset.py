@@ -65,7 +65,7 @@ class ERA5Dataset(Dataset):
     def _get_split_slice(
         self, dataset_name: str, split: str, expanded_test: bool
     ) -> slice:
-        if "example" in dataset_name:
+        if "small" in dataset_name:
             return self._get_example_split_slice(split)
         # return self._get_example_split_slice(split)
         return self._get_actual_split_slice(split, expanded_test)
@@ -99,12 +99,12 @@ class ERA5Dataset(Dataset):
         if ds_timesteps <= 0:
             raise ValueError("Dataset too small for given pred_length")
 
-        if split == "train":
+        if True:  # split == "train":
             self.ds_len = ds_timesteps
             self.init_all = True
-        else:  # val, test
-            self.ds_len = int(np.ceil(ds_timesteps / 2))
-            self.init_all = False
+        # else:  # val, test
+        #     self.ds_len = int(np.ceil(ds_timesteps / 2))
+        #     self.init_all = False
 
     def _setup_standardization(self, dataset_name: str):
         if self.standardize:
@@ -295,7 +295,8 @@ class ERA5Dataset(Dataset):
     def _get_forcing(
         self, sample_slice: slice, full_series_len: int
     ) -> torch.Tensor:
-        forcing_np = self.forcing_xda[sample_slice].to_numpy()
+        forcing_np = self.forcing_xda[sample_slice]
+        forcing_np = torch.nan_to_zero(forcing_np).to_numpy()
         forcing_flat_np = forcing_np.reshape(
             full_series_len, -1, forcing_np.shape[-1]
         )
