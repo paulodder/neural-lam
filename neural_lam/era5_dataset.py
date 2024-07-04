@@ -93,7 +93,7 @@ class ERA5Dataset(Dataset):
 
     def _setup_dataset_length(self, split: str, timesteps_in_split: int):
         ds_timesteps = (
-            timesteps_in_split - 1 - self.pred_length - (2 * self.step_size)
+            timesteps_in_split - (1 + self.pred_length) * self.step_size
         )
         if ds_timesteps <= 0:
             raise ValueError("Dataset too small for given pred_length")
@@ -177,6 +177,9 @@ class ERA5Dataset(Dataset):
     def __getitem__(
         self, idx: int
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        # make positive index
+        if idx < 0:
+            idx = self.ds_len + idx
         if self.init_all:
             init_i = idx + self.step_size  # s = idx+1
         else:
