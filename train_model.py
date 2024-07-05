@@ -17,6 +17,7 @@ from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.weather_dataset import WeatherDataset
 from bwdl.named_configs import DatasetConfig, GlobalMeshConfig
+from bwdl.constants import CHECKPOINT_DIR
 
 MODELS = {
     "graphcast": GraphCast,
@@ -377,10 +378,12 @@ def main():
     )
 
     # Callbacks for saving model checkpoint
+    checkpoint_dir = CHECKPOINT_DIR / f"saved_models/{run_name}"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     callbacks = []
     callbacks.append(
         pl.callbacks.ModelCheckpoint(
-            dirpath=f"saved_models/{run_name}",
+            dirpath=checkpoint_dir,
             filename="min_val_loss",
             monitor="val_mean_loss",
             mode="min",
