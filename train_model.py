@@ -27,7 +27,9 @@ MODELS = {
 
 
 def parse_args():
-    parser = ArgumentParser(description="Train or evaluate NeurWP models for LAM")
+    parser = ArgumentParser(
+        description="Train or evaluate NeurWP models for LAM"
+    )
 
     # General options
     parser.add_argument(
@@ -88,7 +90,8 @@ def parse_args():
         "--restore_opt",
         type=int,
         default=0,
-        help="If optimizer state should be restored with model " "(default: 0 (false))",
+        help="If optimizer state should be restored with model "
+        "(default: 0 (false))",
     )
     parser.add_argument(
         "--precision",
@@ -110,7 +113,8 @@ def parse_args():
         "--graph",
         type=str,
         default="multiscale",
-        help="Graph to load and use in graph-based model " "(default: multiscale)",
+        help="Graph to load and use in graph-based model "
+        "(default: multiscale)",
     )
     parser.add_argument(
         "--hidden_dim",
@@ -193,7 +197,8 @@ def parse_args():
         "--ar_steps",
         type=int,
         default=1,
-        help="Number of steps to unroll prediction for in loss (1-19) " "(default: 1)",
+        help="Number of steps to unroll prediction for in loss (1-19) "
+        "(default: 1)",
     )
     parser.add_argument(
         "--loss",
@@ -205,7 +210,8 @@ def parse_args():
         "--step_length",
         type=int,
         default=6,
-        help="Step length in hours to consider single time step 1-3 " "(default: 6)",
+        help="Step length in hours to consider single time step 1-3 "
+        "(default: 6)",
     )
     parser.add_argument(
         "--lr", type=float, default=1e-3, help="learning rate (default: 0.001)"
@@ -214,7 +220,8 @@ def parse_args():
         "--val_interval",
         type=int,
         default=1,
-        help="Number of epochs training between each validation run " "(default: 1)",
+        help="Number of epochs training between each validation run "
+        "(default: 1)",
     )
     parser.add_argument(
         "--kl_beta",
@@ -278,7 +285,8 @@ def parse_args():
         "--n_example_pred",
         type=int,
         default=1,
-        help="Number of example predictions to plot during val/test " "(default: 1)",
+        help="Number of example predictions to plot during val/test "
+        "(default: 1)",
     )
     parser.add_argument(
         "--eval_leads",
@@ -343,7 +351,9 @@ def main():
     # Instantiate model + trainer
     if torch.cuda.is_available():
         device_name = "cuda"
-        torch.set_float32_matmul_precision("high")  # Allows using Tensor Cores on A100s
+        torch.set_float32_matmul_precision(
+            "high"
+        )  # Allows using Tensor Cores on A100s
     else:
         device_name = "cpu"
 
@@ -377,6 +387,14 @@ def main():
             monitor="val_mean_loss",
             mode="min",
             save_last=True,
+        )
+    )
+    callbacks.append(
+        pl.callbacks.ModelCheckpoint(
+            dirpath=checkpoint_dir,
+            filename="epoch_{epoch:02d}",
+            every_n_epochs=1,
+            save_top_k=-1,  # Save all checkpoints
         )
     )
     # Save checkpoints for minimum loss at specific lead times
@@ -414,6 +432,8 @@ def main():
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
         num_sanity_val_steps=args.sanity_batches,
+        auto_lr_find=True,
+        sync_batchnorm=True,
     )
 
     # Only init once, on rank 0 only
