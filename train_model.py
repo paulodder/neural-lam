@@ -282,7 +282,7 @@ def parse_args():
     parser.add_argument(
         "--eval_leads",
         type=int,
-        default=40,
+        default=2,
         help="Number of time steps to predict and evaluat at during val/test"
         "(default: 40)",
     )
@@ -339,7 +339,6 @@ def main():
         shuffle=False,
         num_workers=args.n_workers,
     )
-
     # Instantiate model + trainer
     if torch.cuda.is_available():
         device_name = "cuda"
