@@ -30,9 +30,11 @@ class ARModel(pl.LightningModule):
         static_data_dict = utils.load_static_data(args.dataset)
         print(static_data_dict.keys())
         for static_data_name, static_data_tensor in static_data_dict.items():
-            self.register_buffer(
-                static_data_name, static_data_tensor, persistent=False
-            )
+
+            self.register_buffer(static_data_name, static_data_tensor, persistent=False)
+
+        self.step_diff_mean = torch.nan_to_num(self.step_diff_mean)
+        self.step_diff_std = torch.nan_to_num(self.step_diff_std)
 
         # Double grid output dim. to also output std.-dev.
         self.output_std = bool(args.output_std)
@@ -41,9 +43,7 @@ class ARModel(pl.LightningModule):
                 2 * constants.GRID_STATE_DIM
             )  # Pred. dim. in grid cell
         else:
-            self.grid_output_dim = (
-                constants.GRID_STATE_DIM
-            )  # Pred. dim. in grid cell
+            self.grid_output_dim = constants.GRID_STATE_DIM  # Pred. dim. in grid cell
 
             # Store constant per-variable std.-dev. weighting
             # Note that this is the inverse of the multiplicative weighting
@@ -60,9 +60,7 @@ class ARModel(pl.LightningModule):
             grid_static_dim,
         ) = self.grid_static_features.shape  # 63784 = 268x238
         self.grid_dim = (
-            2 * constants.GRID_STATE_DIM
-            + grid_static_dim
-            + constants.GRID_FORCING_DIM
+            2 * constants.GRID_STATE_DIM + grid_static_dim + constants.GRID_FORCING_DIM
         )
 
         # Instantiate loss function
@@ -113,9 +111,7 @@ class ARModel(pl.LightningModule):
         self.spatial_loss_maps = []
 
     def configure_optimizers(self):
-        opt = torch.optim.AdamW(
-            self.parameters(), lr=self.lr, betas=(0.9, 0.95)
-        )
+        opt = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95))
         if self.opt_state:
             opt.load_state_dict(self.opt_state)
 
@@ -153,10 +149,7 @@ class ARModel(pl.LightningModule):
         Overwrite border with true state if using boundary forcing
         """
         if self.boundary_forcing:
-            return (
-                self.border_mask * border_state
-                + self.interior_mask * pred_state
-            )
+            return self.border_mask * border_state + self.interior_mask * pred_state
 
         # Just return prediction
         return pred_state
@@ -173,6 +166,7 @@ class ARModel(pl.LightningModule):
         prediction_list = []
         pred_std_list = []
         pred_steps = forcing_features.shape[1]
+        # breakpoint()
 
         for i in range(pred_steps):
             forcing = forcing_features[:, i]
@@ -184,9 +178,7 @@ class ARModel(pl.LightningModule):
             # state: (B, num_grid_nodes, d_f)
             # pred_std: (B, num_grid_nodes, d_f) or None
 
-            new_state = self.optional_boundary_forcing(
-                pred_state, border_state
-            )
+            new_state = self.optional_boundary_forcing(pred_state, border_state)
 
             prediction_list.append(new_state)
             if self.output_std:
@@ -222,6 +214,7 @@ class ARModel(pl.LightningModule):
             target_states,
             forcing_features,
         ) = batch
+        # breakpoint()
 
         prediction, pred_std = self.unroll_prediction(
             init_states, forcing_features, target_states
@@ -236,7 +229,7 @@ class ARModel(pl.LightningModule):
         Train on single batch
         """
         prediction, target, pred_std = self.common_step(batch)
-
+        # breakpoint()
         # Compute loss
         batch_loss = torch.mean(
             self.loss(
@@ -295,9 +288,7 @@ class ARModel(pl.LightningModule):
             for step in self.val_log_leads
         }
         val_log_dict["val_mean_loss"] = mean_loss
-        self.log_dict(
-            val_log_dict, on_step=False, on_epoch=True, sync_dist=True
-        )
+        self.log_dict(val_log_dict, on_step=False, on_epoch=True, sync_dist=True)
 
         # Store MSEs
         entry_mses = metrics.mse(
@@ -315,7 +306,7 @@ class ARModel(pl.LightningModule):
         Compute val metrics at the end of val epoch
         """
         # Create error maps for all test metrics
-        self.aggregate_and_plot_metrics(self.val_metrics, prefix="val")
+        # self.aggregate_and_plot_metrics(self.val_metrics, prefix="val")
 
         # Clear lists with validation metrics values
         for metric_list in self.val_metrics.values():
@@ -349,9 +340,7 @@ class ARModel(pl.LightningModule):
         }
         test_log_dict["test_mean_loss"] = mean_loss
 
-        self.log_dict(
-            test_log_dict, on_step=False, on_epoch=True, sync_dist=True
-        )
+        self.log_dict(test_log_dict, on_step=False, on_epoch=True, sync_dist=True)
 
         # Compute all evaluation metrics for error maps
         # Note: explicitly list metrics here, as test_metrics can contain
@@ -386,19 +375,14 @@ class ARModel(pl.LightningModule):
         # (B, N_log, num_grid_nodes)
 
         # Plot example predictions (on rank 0 only)
-        if (
-            self.trainer.is_global_zero
-            and self.plotted_examples < self.n_example_pred
-        ):
+        if self.trainer.is_global_zero and self.plotted_examples < self.n_example_pred:
             # Need to plot more example predictions
             n_additional_examples = min(
                 prediction.shape[0],
                 self.n_example_pred - self.plotted_examples,
             )
 
-            self.plot_examples(
-                batch, n_additional_examples, prediction=prediction
-            )
+            self.plot_examples(batch, n_additional_examples, prediction=prediction)
 
     def plot_examples(self, batch, n_examples, prediction=None):
         """
@@ -464,9 +448,7 @@ class ARModel(pl.LightningModule):
                         ),
                         vrange=var_vranges[var_i],
                     )
-                    for var_i, var_name in zip(
-                        constants.EVAL_PLOT_VARS, var_names
-                    )
+                    for var_i, var_name in zip(constants.EVAL_PLOT_VARS, var_names)
                 ]
 
                 example_i = self.plotted_examples
@@ -476,16 +458,12 @@ class ARModel(pl.LightningModule):
                         for var_name, fig in zip(var_names, var_figs)
                     }
                 )
-                plt.close(
-                    "all"
-                )  # Close all figs for this time step, saves memory
+                plt.close("all")  # Close all figs for this time step, saves memory
 
             # Save pred and target as .pt files
             torch.save(
                 pred_slice.cpu(),
-                os.path.join(
-                    wandb.run.dir, f"example_pred_{self.plotted_examples}.pt"
-                ),
+                os.path.join(wandb.run.dir, f"example_pred_{self.plotted_examples}.pt"),
             )
             torch.save(
                 target_slice.cpu(),
@@ -507,21 +485,21 @@ class ARModel(pl.LightningModule):
         log_dict: dict with everything to log for given metric
         """
         log_dict = {}
-        metric_fig = vis.plot_error_map(metric_tensor)
+        # metric_fig = vis.plot_error_map(metric_tensor)
         full_log_name = f"{prefix}_{metric_name}"
         log_dict[full_log_name] = wandb.Image(metric_fig)
 
-        if prefix == "test":
-            # Save pdf
-            metric_fig.savefig(
-                os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
-            )
-            # Save errors also as csv
-            np.savetxt(
-                os.path.join(wandb.run.dir, f"{full_log_name}.csv"),
-                metric_tensor.cpu().numpy(),
-                delimiter=",",
-            )
+        # if prefix == "test":
+        #     # Save pdf
+        #     metric_fig.savefig(
+        #         os.path.join(wandb.run.dir, f"{full_log_name}.pdf")
+        #     )
+        #     # Save errors also as csv
+        #     np.savetxt(
+        #         os.path.join(wandb.run.dir, f"{full_log_name}.csv"),
+        #         metric_tensor.cpu().numpy(),
+        #         delimiter=",",
+        #     )
 
         # Check if metrics are watched, log exact values for specific vars
         if full_log_name in constants.METRICS_WATCH:
@@ -569,9 +547,7 @@ class ARModel(pl.LightningModule):
                 metric_rescaled = metric_tensor_averaged * self.data_std
                 # (pred_steps, d_f)
                 log_dict.update(
-                    self.create_metric_log_dict(
-                        metric_rescaled, prefix, metric_name
-                    )
+                    self.create_metric_log_dict(metric_rescaled, prefix, metric_name)
                 )
 
         if self.trainer.is_global_zero and not self.trainer.sanity_checking:
@@ -613,14 +589,10 @@ class ARModel(pl.LightningModule):
                 vis.plot_spatial_error(loss_map, self.interior_mask[:, 0])
                 for loss_map in mean_spatial_loss
             ]
-            pdf_loss_maps_dir = os.path.join(
-                wandb.run.dir, "spatial_loss_maps"
-            )
+            pdf_loss_maps_dir = os.path.join(wandb.run.dir, "spatial_loss_maps")
             os.makedirs(pdf_loss_maps_dir, exist_ok=True)
             for t_i, fig in zip(self.val_log_leads, pdf_loss_map_figs):
-                fig.savefig(
-                    os.path.join(pdf_loss_maps_dir, f"loss_t{t_i}.pdf")
-                )
+                fig.savefig(os.path.join(pdf_loss_maps_dir, f"loss_t{t_i}.pdf"))
             # save mean spatial loss as .pt file also
             torch.save(
                 mean_spatial_loss.cpu(),
@@ -645,8 +617,6 @@ class ARModel(pl.LightningModule):
                 )
             )
             for old_key in replace_keys:
-                new_key = old_key.replace(
-                    "g2m_gnn.grid_mlp", "encoding_grid_mlp"
-                )
+                new_key = old_key.replace("g2m_gnn.grid_mlp", "encoding_grid_mlp")
                 loaded_state_dict[new_key] = loaded_state_dict[old_key]
                 del loaded_state_dict[old_key]

@@ -26,9 +26,7 @@ MODELS = {
 
 
 def parse_args():
-    parser = ArgumentParser(
-        description="Train or evaluate NeurWP models for LAM"
-    )
+    parser = ArgumentParser(description="Train or evaluate NeurWP models for LAM")
 
     # General options
     parser.add_argument(
@@ -89,8 +87,7 @@ def parse_args():
         "--restore_opt",
         type=int,
         default=0,
-        help="If optimizer state should be restored with model "
-        "(default: 0 (false))",
+        help="If optimizer state should be restored with model " "(default: 0 (false))",
     )
     parser.add_argument(
         "--precision",
@@ -112,8 +109,7 @@ def parse_args():
         "--graph",
         type=str,
         default="multiscale",
-        help="Graph to load and use in graph-based model "
-        "(default: multiscale)",
+        help="Graph to load and use in graph-based model " "(default: multiscale)",
     )
     parser.add_argument(
         "--hidden_dim",
@@ -196,8 +192,7 @@ def parse_args():
         "--ar_steps",
         type=int,
         default=1,
-        help="Number of steps to unroll prediction for in loss (1-19) "
-        "(default: 1)",
+        help="Number of steps to unroll prediction for in loss (1-19) " "(default: 1)",
     )
     parser.add_argument(
         "--loss",
@@ -209,8 +204,7 @@ def parse_args():
         "--step_length",
         type=int,
         default=6,
-        help="Step length in hours to consider single time step 1-3 "
-        "(default: 6)",
+        help="Step length in hours to consider single time step 1-3 " "(default: 6)",
     )
     parser.add_argument(
         "--lr", type=float, default=1e-3, help="learning rate (default: 0.001)"
@@ -219,8 +213,7 @@ def parse_args():
         "--val_interval",
         type=int,
         default=1,
-        help="Number of epochs training between each validation run "
-        "(default: 1)",
+        help="Number of epochs training between each validation run " "(default: 1)",
     )
     parser.add_argument(
         "--kl_beta",
@@ -284,8 +277,7 @@ def parse_args():
         "--n_example_pred",
         type=int,
         default=1,
-        help="Number of example predictions to plot during val/test "
-        "(default: 1)",
+        help="Number of example predictions to plot during val/test " "(default: 1)",
     )
     parser.add_argument(
         "--eval_leads",
@@ -349,11 +341,9 @@ def main():
     )
 
     # Instantiate model + trainer
-    if False:  # torch.cuda.is_available():
+    if torch.cuda.is_available():
         device_name = "cuda"
-        torch.set_float32_matmul_precision(
-            "high"
-        )  # Allows using Tensor Cores on A100s
+        torch.set_float32_matmul_precision("high")  # Allows using Tensor Cores on A100s
     else:
         device_name = "cpu"
 
@@ -402,9 +392,9 @@ def main():
                 mode="min",
             )
         )
-    # logger = pl.loggers.WandbLogger(
-    #     project=constants.WANDB_PROJECT, name=run_name, config=args
-    # )
+    logger = pl.loggers.WandbLogger(
+        project=constants.WANDB_PROJECT, name=run_name, config=args
+    )
 
     # Training strategy
     # If doing pure autoencoder training (kl_beta = 0), the prior network is not
@@ -416,7 +406,7 @@ def main():
         deterministic=True,
         strategy=strategy,
         accelerator=device_name,
-        # logger=logger,
+        logger=logger,
         log_every_n_steps=1,
         callbacks=callbacks,
         check_val_every_n_epoch=args.val_interval,
