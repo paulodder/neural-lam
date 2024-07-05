@@ -432,8 +432,6 @@ def main():
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
         num_sanity_val_steps=args.sanity_batches,
-        auto_lr_find=True,
-        sync_batchnorm=True,
     )
 
     # Only init once, on rank 0 only
