@@ -102,12 +102,16 @@ PARAM_UNITS = [
 ] + ["K", "m/s", "m/s", "Pa", "m"]
 
 SURFACE_PARAM2WEIGHT = {
-    "2m_temperature": 1.0,
-    "sea_surface_temperature": 2.0,
-    "sea_ice_cover": 2.0,
-    "snow_depth": 1.0,
-    "volumetric_soil_water_layer_2": 1.0,
-    "volumetric_soil_water_layer_3": 2.0,
+    "2m_temperature": 0.3,
+    "sea_surface_temperature": 0.8,
+    "sea_ice_cover": 0.8,
+    "snow_depth": 0.5,
+    "volumetric_soil_water_layer_2": 0.3,
+    "volumetric_soil_water_layer_3": 0.6,
+}
+# normalize SURFACE_PARAMS to have same weight as ATMOSPHERIC_PARAMS
+SURFACE_PARAM2WEIGHT = {
+    k: v / sum(SURFACE_PARAM2WEIGHT.values()) for k, v in SURFACE_PARAM2WEIGHT.items()
 }
 
 # What variables (index) to plot during evaluation
@@ -124,7 +128,7 @@ SURFACE_PARAM2WEIGHT = {
 # )
 
 # Projection and grid
-GRID_SHAPE = (180, 90)  # (long, lat)
+GRID_SHAPE = (180, 91)  # (long, lat)
 
 # Create projection
 MAP_PROJ = cartopy.crs.Robinson()
