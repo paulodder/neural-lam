@@ -453,6 +453,7 @@ def main():
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
         num_sanity_val_steps=args.sanity_batches,
+        gradient_clip_val=args.grad_clip,
         detect_anomaly=True,
     )
 
