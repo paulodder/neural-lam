@@ -273,6 +273,98 @@ def make_mlp(blueprint, layer_norm=True):
     return nn.Sequential(*layers)
 
 
+# class DebugMLP(nn.Module):
+#     def __init__(self, layers):
+#         super().__init__()
+#         self.layers = nn.ModuleList(layers)
+#         self.register_hooks()
+#         self.nan_or_inf_detected = False
+
+#     def register_hooks(self):
+#         def hook_fn(grad):
+#             if torch.isnan(grad).any() or torch.isinf(grad).any():
+#                 self.nan_or_inf_detected = True
+#                 print(
+#                     f"NaN or Inf gradient detected in {self.get_parameter_name(grad)}"
+#                 )
+#                 print(f"Gradient stats for {self.get_parameter_name(grad)}:")
+#                 print(f"  mean: {grad.mean().item():.4f}")
+#                 print(f"  std: {grad.std().item():.4f}")
+#                 print(f"  min: {grad.min().item():.4f}")
+#                 print(f"  max: {grad.max().item():.4f}")
+#             return grad
+
+#         for name, param in self.named_parameters():
+#             param.register_hook(lambda grad, name=name: hook_fn(grad))
+
+#     def get_parameter_name(self, grad):
+#         for name, param in self.named_parameters():
+#             if param.grad is grad:
+#                 return name
+#         return "Unknown"
+
+#     def print_layer_stats(self, layer, i):
+#         if not self.nan_or_inf_detected:
+#             return
+
+#         if isinstance(layer, nn.Linear):
+#             print(f"Layer {i} (Linear) stats:")
+#             print("  Weights:")
+#             print(f"    mean: {layer.weight.mean().item():.4f}")
+#             print(f"    std: {layer.weight.std().item():.4f}")
+#             print(f"    min: {layer.weight.min().item():.4f}")
+#             print(f"    max: {layer.weight.max().item():.4f}")
+#             if layer.bias is not None:
+#                 print("  Bias:")
+#                 print(f"    mean: {layer.bias.mean().item():.4f}")
+#                 print(f"    std: {layer.bias.std().item():.4f}")
+#                 print(f"    min: {layer.bias.min().item():.4f}")
+#                 print(f"    max: {layer.bias.max().item():.4f}")
+#         elif isinstance(layer, nn.LayerNorm):
+#             print(f"Layer {i} (LayerNorm) stats:")
+#             print("  Weight:")
+#             print(f"    mean: {layer.weight.mean().item():.4f}")
+#             print(f"    std: {layer.weight.std().item():.4f}")
+#             print(f"    min: {layer.weight.min().item():.4f}")
+#             print(f"    max: {layer.weight.max().item():.4f}")
+#             print("  Bias:")
+#             print(f"    mean: {layer.bias.mean().item():.4f}")
+#             print(f"    std: {layer.bias.std().item():.4f}")
+#             print(f"    min: {layer.bias.min().item():.4f}")
+#             print(f"    max: {layer.bias.max().item():.4f}")
+
+#     def forward(self, x):
+#         for i, layer in enumerate(self.layers):
+#             self.print_layer_stats(layer, i)
+#             x = layer(x)
+#             if torch.isnan(x).any() or torch.isinf(x).any():
+#                 self.nan_or_inf_detected = True
+#                 print(f"NaN or Inf detected in layer {i} output")
+#                 print(f"Layer {i} output stats:")
+#                 print(f"  mean: {x.mean().item():.4f}")
+#                 print(f"  std: {x.std().item():.4f}")
+#                 print(f"  min: {x.min().item():.4f}")
+#                 print(f"  max: {x.max().item():.4f}")
+#             elif self.nan_or_inf_detected:
+#                 print(f"Layer {i} output stats:")
+#                 print(f"  mean: {x.mean().item():.4f}")
+#                 print(f"  std: {x.std().item():.4f}")
+#                 print(f"  min: {x.min().item():.4f}")
+#                 print(f"  max: {x.max().item():.4f}")
+#         return x
+
+
+# def make_mlp(blueprint, layer_norm=True):
+#     layers = []
+#     for layer_i, (dim1, dim2) in enumerate(zip(blueprint[:-1], blueprint[1:])):
+#         layers.append(nn.Linear(dim1, dim2))
+#         if layer_i != len(blueprint) - 2:
+#             layers.append(nn.SiLU())  # Swish activation
+#     if layer_norm:
+#         layers.append(nn.LayerNorm(blueprint[-1]))
+#     return DebugMLP(layers)
+
+
 def fractional_plot_bundle(fraction):
     """
     Get the tueplots bundle, but with figure width as a fraction of

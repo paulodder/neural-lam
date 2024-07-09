@@ -25,13 +25,14 @@ MODELS = {
     "graph_efm": GraphEFM,
 }
 
+torch.autograd.set_detect_anomaly(True)
+
 
 def parse_args():
-    parser = ArgumentParser(
-        description="Train or evaluate NeurWP models for LAM"
-    )
+    parser = ArgumentParser(description="Train or evaluate NeurWP models for LAM")
 
     # General options
+
     parser.add_argument(
         "--dataset",
         type=str,
@@ -53,6 +54,12 @@ def parse_args():
         type=int,
         default=16,
         help="Number of workers in data loader (default: 4)",
+    )
+    parser.add_argument(
+        "--devices",
+        type=int,
+        default=1,
+        help="Number of GPUs to use for training (default: 1)",
     )
     parser.add_argument(
         "--epochs",
@@ -90,8 +97,7 @@ def parse_args():
         "--restore_opt",
         type=int,
         default=0,
-        help="If optimizer state should be restored with model "
-        "(default: 0 (false))",
+        help="If optimizer state should be restored with model " "(default: 0 (false))",
     )
     parser.add_argument(
         "--precision",
@@ -113,8 +119,7 @@ def parse_args():
         "--graph",
         type=str,
         default="multiscale",
-        help="Graph to load and use in graph-based model "
-        "(default: multiscale)",
+        help="Graph to load and use in graph-based model " "(default: multiscale)",
     )
     parser.add_argument(
         "--hidden_dim",
@@ -197,8 +202,7 @@ def parse_args():
         "--ar_steps",
         type=int,
         default=1,
-        help="Number of steps to unroll prediction for in loss (1-19) "
-        "(default: 1)",
+        help="Number of steps to unroll prediction for in loss (1-19) " "(default: 1)",
     )
     parser.add_argument(
         "--loss",
@@ -210,8 +214,7 @@ def parse_args():
         "--step_length",
         type=int,
         default=6,
-        help="Step length in hours to consider single time step 1-3 "
-        "(default: 6)",
+        help="Step length in hours to consider single time step 1-3 " "(default: 6)",
     )
     parser.add_argument(
         "--lr", type=float, default=1e-3, help="learning rate (default: 0.001)"
@@ -220,8 +223,7 @@ def parse_args():
         "--val_interval",
         type=int,
         default=1,
-        help="Number of epochs training between each validation run "
-        "(default: 1)",
+        help="Number of epochs training between each validation run " "(default: 1)",
     )
     parser.add_argument(
         "--kl_beta",
@@ -285,8 +287,7 @@ def parse_args():
         "--n_example_pred",
         type=int,
         default=1,
-        help="Number of example predictions to plot during val/test "
-        "(default: 1)",
+        help="Number of example predictions to plot during val/test " "(default: 1)",
     )
     parser.add_argument(
         "--eval_leads",
@@ -303,6 +304,26 @@ def parse_args():
     )
     args = parser.parse_args()
     return args
+
+
+from pytorch_lightning.callbacks import Callback
+
+
+class NaNDetector(Callback):
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.check_nan(pl_module)
+
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.check_nan(pl_module)
+
+    def check_nan(self, pl_module):
+        for name, param in pl_module.named_parameters():
+            if torch.isnan(param).any():
+                print(f"NaN detected in parameter {name}")
+                breakpoint()
+            if param.grad is not None and torch.isnan(param.grad).any():
+                print(f"NaN detected in gradient of parameter {name}")
+                breakpoint()
 
 
 def main():
@@ -351,9 +372,7 @@ def main():
     # Instantiate model + trainer
     if torch.cuda.is_available():
         device_name = "cuda"
-        torch.set_float32_matmul_precision(
-            "high"
-        )  # Allows using Tensor Cores on A100s
+        torch.set_float32_matmul_precision("high")  # Allows using Tensor Cores on A100s
     else:
         device_name = "cpu"
 
@@ -389,6 +408,7 @@ def main():
             save_last=True,
         )
     )
+    callbacks.append(NaNDetector())
     callbacks.append(
         pl.callbacks.ModelCheckpoint(
             dirpath=checkpoint_dir,
@@ -427,18 +447,18 @@ def main():
         strategy=strategy,
         accelerator=device_name,
         logger=logger,
+        devices=args.devices,
         log_every_n_steps=1,
         callbacks=callbacks,
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
         num_sanity_val_steps=args.sanity_batches,
-        auto_lr_find=True,
-        sync_batchnorm=True,
+        detect_anomaly=True,
     )
 
     # Only init once, on rank 0 only
-    # if trainer.global_rank == 0:
-    #     utils.init_wandb_metrics(logger)  # Do after wandb.init
+    if trainer.global_rank == 0:
+        utils.init_wandb_metrics(logger)  # Do after wandb.init
 
     if args.eval:
         if args.eval == "val":

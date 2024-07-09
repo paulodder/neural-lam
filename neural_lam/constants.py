@@ -85,10 +85,9 @@ REL_PRESSURE_LEVELS = ["50", "100", "300", "500", "1000"]
 #     for level in REL_PRESSURE_LEVELS
 # ] + SURFACE_PARAMS_SHORT
 PARAM_NAMES = [
-    f"{param}-{level}"
-    for param in ATMOSPHERIC_PARAMS
-    for level in REL_PRESSURE_LEVELS
+    f"{param}-{level}" for param in ATMOSPHERIC_PARAMS for level in REL_PRESSURE_LEVELS
 ] + SURFACE_PARAMS
+
 
 ATMOSPHERIC_PARAMS_UNITS = [
     "m²/s²",
@@ -101,6 +100,15 @@ ATMOSPHERIC_PARAMS_UNITS = [
 PARAM_UNITS = [
     unit for unit in ATMOSPHERIC_PARAMS_UNITS for level in REL_PRESSURE_LEVELS
 ] + ["K", "m/s", "m/s", "Pa", "m"]
+
+SURFACE_PARAM2WEIGHT = {
+    "2m_temperature": 1.0,
+    "sea_surface_temperature": 2.0,
+    "sea_ice_cover": 2.0,
+    "snow_depth": 1.0,
+    "volumetric_soil_water_layer_2": 1.0,
+    "volumetric_soil_water_layer_3": 2.0,
+}
 
 # What variables (index) to plot during evaluation
 
