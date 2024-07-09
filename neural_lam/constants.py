@@ -60,7 +60,7 @@ SURFACE_PARAMS = [
     "volumetric_soil_water_layer_3",
     # "10m_u_component_of_wind",
     # "10m_v_component_of_wind",
-    # "mean_sea_level_pressure",
+    "mean_sea_level_pressure",
     # "total_precipitation_6hr",
 ]  # = 5 params
 # Total = 83 params
@@ -108,11 +108,15 @@ SURFACE_PARAM2WEIGHT = {
     "snow_depth": 0.5,
     "volumetric_soil_water_layer_2": 0.3,
     "volumetric_soil_water_layer_3": 0.6,
+    "mean_sea_level_pressure": 0.8,
 }
-# normalize SURFACE_PARAMS to have same weight as ATMOSPHERIC_PARAMS
+
+# normalize SURFACE_PARAMS  they should sum to 1.4 like in graphcast
 SURFACE_PARAM2WEIGHT = {
-    k: v / sum(SURFACE_PARAM2WEIGHT.values()) for k, v in SURFACE_PARAM2WEIGHT.items()
+    k: v / sum(SURFACE_PARAM2WEIGHT.values()) * 1.4
+    for k, v in SURFACE_PARAM2WEIGHT.items()
 }
+
 
 # What variables (index) to plot during evaluation
 
