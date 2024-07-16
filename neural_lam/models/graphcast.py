@@ -5,6 +5,7 @@ import torch_geometric as pyg
 from neural_lam import utils
 from neural_lam.interaction_net import InteractionNet
 from neural_lam.models.base_graph_model import BaseGraphModel
+from torch import nn
 
 
 class GraphCast(BaseGraphModel):
@@ -54,6 +55,13 @@ class GraphCast(BaseGraphModel):
                 for net in processor_nets
             ],
         )
+        self.classifier = args.classifier
+        if self.classifier:
+            self.classifier_module = nn.Sequential(
+                nn.Linear(args.hidden_dim, args.hidden_dim // 2),
+                nn.ReLU(),
+                nn.Linear(args.hidden_dim // 2, 1),
+            )
 
     def get_num_mesh(self):
         """

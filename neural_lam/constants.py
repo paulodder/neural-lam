@@ -79,6 +79,14 @@ ATMOSPHERIC_PARAMS_SHORT = [
 
 REL_PRESSURE_LEVELS = ["50", "100", "300", "500", "1000"]
 
+PRESSURE_LEVEL2WEIGHT = {
+    "50": 0.2,
+    "100": 0.4,
+    "300": 0.4,
+    "500": 0.4,
+    "1000": 0.1,
+}
+
 # PARAM_NAMES_SHORT = [
 #     f"{param}-{level}"
 #     for param in ATMOSPHERIC_PARAMS_SHORT
@@ -108,7 +116,7 @@ SURFACE_PARAM2WEIGHT = {
     "snow_depth": 0.5,
     "volumetric_soil_water_layer_2": 0.3,
     "volumetric_soil_water_layer_3": 0.6,
-    "mean_sea_level_pressure": 0.8,
+    "mean_sea_level_pressure": 0.4,
 }
 
 # normalize SURFACE_PARAMS  they should sum to 1.4 like in graphcast

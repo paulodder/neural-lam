@@ -2,6 +2,36 @@
 import torch
 
 
+def bce(
+    pred,
+    target,
+    mask=None,
+    grid_weights=None,
+    average_grid=True,
+    sum_vars=True,
+):
+    """
+    Binary Cross-Entropy with Logits
+    (...,) is any number of batch dimensions, potentially different
+        but broadcastable
+    pred: (..., N, d_state), raw prediction logits
+    target: (..., N, d_state), target
+    mask: (N,), boolean mask describing which grid nodes to use in metric
+    grid_weights: (N,), weighting to apply over grid nodes
+    average_grid: boolean, if grid dimension -2 should be reduced (mean over N)
+    sum_vars: boolean, if variable dimension -1 should be reduced (sum
+        over d_state)
+    Returns:
+    metric_val: One of (...,), (..., d_state), (..., N), (..., N, d_state),
+    depending on reduction arguments.
+    """
+
+    bce = torch.nn.functional.binary_cross_entropy_with_logits(
+        pred, target, reduction="mean"
+    )  # (..., N, d_state)
+    return bce
+
+
 def get_metric(metric_name):
     """
     Get a defined metric with given name
@@ -389,7 +419,8 @@ def crps_ens(
             target_var = target[..., var_i]
 
             mean_mae = torch.mean(
-                torch.abs(pred_var - target_var.unsqueeze(ens_dim)), dim=ens_dim
+                torch.abs(pred_var - target_var.unsqueeze(ens_dim)),
+                dim=ens_dim,
             )  # (..., N)
 
             # Ranks start at 1, two argsorts will compute entry ranks
@@ -454,4 +485,5 @@ DEFINED_METRICS = {
     "crps_gauss": crps_gauss,
     "crps_ens": crps_ens,
     "spread_squared": spread_squared,
+    "bce": bce,
 }

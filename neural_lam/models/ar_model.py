@@ -10,6 +10,7 @@ import wandb
 
 # First-party
 from neural_lam import constants, metrics, utils, vis
+from torchmetrics.classification import BinaryAccuracy
 
 
 class ARModel(pl.LightningModule):
@@ -23,16 +24,18 @@ class ARModel(pl.LightningModule):
 
     def __init__(self, args):
         super().__init__()
-        self.save_hyperparameters()
-        self.lr = args.lr
-
         # Load static features for grid/data
         static_data_dict = utils.load_static_data(args.dataset)
-        print(static_data_dict.keys())
+        # print(static_data_dict.keys())
         for static_data_name, static_data_tensor in static_data_dict.items():
             self.register_buffer(
                 static_data_name, static_data_tensor, persistent=False
             )
+
+        self.args = args
+
+        # todo
+        self.accuracy = BinaryAccuracy()
 
         self.step_diff_mean = torch.nan_to_num(self.step_diff_mean)
         self.step_diff_std = torch.nan_to_num(self.step_diff_std)
@@ -114,13 +117,36 @@ class ARModel(pl.LightningModule):
 
         # For storing spatial loss maps during evaluation
         self.spatial_loss_maps = []
+        self.save_hyperparameters()
+
+        self.lr = args.lr
 
     def configure_optimizers(self):
-        opt = torch.optim.AdamW(
-            self.parameters(), lr=self.lr, betas=(0.9, 0.95)
+        # adamw optimizer
+        optimizer = torch.optim.AdamW(
+            self.parameters(), lr=self.lr, weight_decay=0.1
         )
+        if self.args.lr_scheduler.lower() == "y":
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode="min",
+                factor=self.args.lr_scheduler_factor,
+                patience=self.args.lr_scheduler_patience,
+                verbose=True,
+            )
+        else:
+            scheduler = None
         if self.opt_state:
             opt.load_state_dict(self.opt_state)
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_mean_loss",
+                "frequency": 1,
+            },
+        }
 
         return opt
 
@@ -221,11 +247,12 @@ class ARModel(pl.LightningModule):
         forcing_features: (B, pred_steps, num_grid_nodes, d_forcing),
             where index 0 corresponds to index 1 of init_states
         """
+        # slice incase we are using a ds which return indexes
         (
             init_states,
             target_states,
             forcing_features,
-        ) = batch
+        ) = batch[:3]
         # breakpoint()
 
         prediction, pred_std = self.unroll_prediction(
@@ -240,6 +267,19 @@ class ARModel(pl.LightningModule):
         """
         Train on single batch
         """
+        if self.classifier:
+            pred = self.classifier_step(batch)
+            batch_loss = self.loss(pred, batch)
+            log_dict = {"train_loss": batch_loss}
+            self.log_dict(
+                log_dict,
+                prog_bar=True,
+                on_step=True,
+                on_epoch=True,
+                sync_dist=True,
+            )
+            return batch_loss
+
         prediction, target, pred_std = self.common_step(batch)
         # breakpoint()
         # Compute loss
@@ -274,14 +314,34 @@ class ARModel(pl.LightningModule):
         """
         return self.all_gather(tensor_to_gather).flatten(0, 1)
 
+    def validation_step_classifier(self, batch):
+        """
+        Validate on single batch
+        """
+
+        pred = self.classifier_step(batch)
+        # breakpoint()
+        target_tensor = batch[2].to(torch.bfloat16)
+        pred_tensor = pred.to(torch.bfloat16)
+        loss = self.loss(pred_tensor, target_tensor)
+        target_tensor = target_tensor.to(torch.float32)
+        pred_tensor = pred_tensor.to(torch.float32)
+
+        accuracy = self.accuracy(pred_tensor, target_tensor)
+        self.log(
+            "val_acc", accuracy, on_step=False, on_epoch=True, sync_dist=True
+        )
+        self.log("val_loss", loss, on_step=True, on_epoch=True, sync_dist=True)
+
     # newer lightning versions requires batch_idx argument, even if unused
     # pylint: disable-next=unused-argument
     def validation_step(self, batch, batch_idx):
         """
         Run validation on single batch
         """
+        if self.classifier:
+            return self.validation_step_classifier(batch)
         prediction, target, pred_std = self.common_step(batch)
-
         time_step_loss = torch.mean(
             self.loss(
                 prediction,
@@ -299,11 +359,20 @@ class ARModel(pl.LightningModule):
             f"val_loss_unroll{step}": time_step_loss[step - 1]
             for step in self.val_log_leads
         }
-        val_log_dict["val_mean_loss"] = mean_loss
-        self.log_dict(
-            val_log_dict, on_step=False, on_epoch=True, sync_dist=True
+        mse = metrics.mse(
+            prediction,
+            target,
+            mask=self.interior_mask_bool,
+            pred_std=pred_std,
+            average_grid=False,
+            sum_vars=False,
         )
+        for time_step in self.val_log_leads:
+            val_log_dict[f"val_rmse_unroll{time_step}"] = torch.sqrt(
+                torch.mean(mse[time_step - 1])
+            )
 
+        val_log_dict["val_mean_loss"] = mean_loss
         # Store MSEs
         entry_mses = metrics.mse(
             prediction,
@@ -315,15 +384,24 @@ class ARModel(pl.LightningModule):
         )  # (B, pred_steps, d_f)
         self.val_metrics["mse"].append(entry_mses)
 
+        rmse = torch.sqrt(entry_mses)
+
+        self.log_dict(
+            val_log_dict, on_step=False, on_epoch=True, sync_dist=True
+        )
+
     def on_validation_epoch_end(self):
         """
         Compute val metrics at the end of val epoch
         """
         # Create error maps for all test metrics
-        # self.aggregate_and_plot_metrics(self.val_metrics, prefix="val")
+        if self.classifier:
+            return
+        self.aggregate_and_plot_metrics(self.val_metrics, prefix="val")
 
         # Clear lists with validation metrics values
-        for metric_list in self.val_metrics.values():
+        for metric, metric_list in self.val_metrics.items():
+
             metric_list.clear()
 
     # pylint: disable-next=unused-argument
@@ -514,7 +592,7 @@ class ARModel(pl.LightningModule):
         log_dict = {}
         # metric_fig = vis.plot_error_map(metric_tensor)
         full_log_name = f"{prefix}_{metric_name}"
-        log_dict[full_log_name] = wandb.Image(metric_fig)
+        # log_dict[full_log_name] = wandb.Image(metric_fig)
 
         # if prefix == "test":
         #     # Save pdf
@@ -531,7 +609,7 @@ class ARModel(pl.LightningModule):
         # Check if metrics are watched, log exact values for specific vars
         if full_log_name in constants.METRICS_WATCH:
             for var_i, timesteps in constants.VAR_LEADS_METRICS_WATCH.items():
-                var = constants.PARAM_NAMES_SHORT[var_i]
+                var = constants.PARAM_NAMES[var_i]
                 log_dict.update(
                     {
                         f"{full_log_name}_{var}_step_{step}": metric_tensor[

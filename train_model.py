@@ -2,6 +2,7 @@
 import random
 import time
 from argparse import ArgumentParser
+import argparse
 
 # Third-party
 import pytorch_lightning as pl
@@ -11,6 +12,7 @@ from lightning_fabric.utilities import seed
 # First-party
 from neural_lam import constants, utils
 from neural_lam.era5_dataset import ERA5Dataset
+from neural_lam.era5_dataset_nao import ERA5NAODataset
 from neural_lam.forecast_to_xarr import forecast_to_xarr
 from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
@@ -29,7 +31,9 @@ torch.autograd.set_detect_anomaly(True)
 
 
 def parse_args():
-    parser = ArgumentParser(description="Train or evaluate NeurWP models for LAM")
+    parser = ArgumentParser(
+        description="Train or evaluate NeurWP models for LAM"
+    )
 
     # General options
 
@@ -41,10 +45,22 @@ def parse_args():
         "(default: meps_example)",
     )
     parser.add_argument(
+        "--lead_time",
+        type=int,
+        default=3,
+    )
+    parser.add_argument("--classifier", action=argparse.BooleanOptionalAction)
+    parser.add_argument(
         "--model",
         type=str,
         default="graphcast",
         help="Model architecture to train/evaluate (default: graph_lam)",
+    )
+    parser.add_argument(
+        "--format",
+        type=str,
+        default="netcdf",
+        help="format of input data (netcdf or zarr)",
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="random seed (default: 42)"
@@ -97,7 +113,8 @@ def parse_args():
         "--restore_opt",
         type=int,
         default=0,
-        help="If optimizer state should be restored with model " "(default: 0 (false))",
+        help="If optimizer state should be restored with model "
+        "(default: 0 (false))",
     )
     parser.add_argument(
         "--precision",
@@ -119,7 +136,8 @@ def parse_args():
         "--graph",
         type=str,
         default="multiscale",
-        help="Graph to load and use in graph-based model " "(default: multiscale)",
+        help="Graph to load and use in graph-based model "
+        "(default: multiscale)",
     )
     parser.add_argument(
         "--hidden_dim",
@@ -202,7 +220,8 @@ def parse_args():
         "--ar_steps",
         type=int,
         default=1,
-        help="Number of steps to unroll prediction for in loss (1-19) " "(default: 1)",
+        help="Number of steps to unroll prediction for in loss (1-19) "
+        "(default: 1)",
     )
     parser.add_argument(
         "--loss",
@@ -214,16 +233,38 @@ def parse_args():
         "--step_length",
         type=int,
         default=6,
-        help="Step length in hours to consider single time step 1-3 " "(default: 6)",
+        help="Step length in hours to consider single time step 1-3 "
+        "(default: 6)",
     )
     parser.add_argument(
         "--lr", type=float, default=1e-3, help="learning rate (default: 0.001)"
     )
+    # learning rate sching y or n
+    parser.add_argument(
+        "--lr_scheduler",
+        type=str,
+        default="y",
+        help="Use learning rate scheduler (y/n) (default: y)",
+    )
+    parser.add_argument(
+        "--lr_scheduler_factor",
+        type=float,
+        default=0.5,
+        help="Factor by which the learning rate will be reduced (default: 0.5)",
+    )
+    parser.add_argument(
+        "--lr_scheduler_patience",
+        type=int,
+        default=5,
+        help="Number of epochs with no improvement after which learning rate will be reduced (default: 5)",
+    )
+
     parser.add_argument(
         "--val_interval",
         type=int,
         default=1,
-        help="Number of epochs training between each validation run " "(default: 1)",
+        help="Number of epochs training between each validation run "
+        "(default: 1)",
     )
     parser.add_argument(
         "--kl_beta",
@@ -287,7 +328,8 @@ def parse_args():
         "--n_example_pred",
         type=int,
         default=1,
-        help="Number of example predictions to plot during val/test " "(default: 1)",
+        help="Number of example predictions to plot during val/test "
+        "(default: 1)",
     )
     parser.add_argument(
         "--eval_leads",
@@ -310,10 +352,14 @@ from pytorch_lightning.callbacks import Callback
 
 
 class NaNDetector(Callback):
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+    def on_train_batch_end(
+        self, trainer, pl_module, outputs, batch, batch_idx
+    ):
         self.check_nan(pl_module)
 
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+    def on_validation_batch_end(
+        self, trainer, pl_module, outputs, batch, batch_idx
+    ):
         self.check_nan(pl_module)
 
     def check_nan(self, pl_module):
@@ -348,38 +394,70 @@ def main():
     seed.seed_everything(args.seed)
 
     # Load data
-
-    train_loader = torch.utils.data.DataLoader(
-        ERA5Dataset(
+    if args.classifier:
+        train_dataset = ERA5NAODataset(
             dataset_config,
-            pred_length=args.ar_steps,
+            lead_time=args.lead_time,
             split="train",
-        ),
-        args.batch_size,
-        shuffle=True,
-        num_workers=args.n_workers,
-    )
-    val_loader = torch.utils.data.DataLoader(
-        ERA5Dataset(
+            format=args.format,
+        )
+        val_dataset = ERA5NAODataset(
             dataset_config,
-            pred_length=args.eval_leads,
+            lead_time=args.lead_time,
             split="val",
-        ),
-        args.batch_size,
-        shuffle=False,
-        num_workers=args.n_workers,
-    )
+            format=args.format,
+        )
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.n_workers,
+        )
+        val_loader = torch.utils.data.DataLoader(
+            val_dataset,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.n_workers,
+        )
+
+    else:
+        train_loader = torch.utils.data.DataLoader(
+            ERA5Dataset(
+                dataset_config,
+                pred_length=args.ar_steps,
+                split="train",
+                format=args.format,
+            ),
+            args.batch_size,
+            shuffle=True,
+            num_workers=args.n_workers,
+        )
+        val_loader = torch.utils.data.DataLoader(
+            ERA5Dataset(
+                dataset_config,
+                pred_length=args.eval_leads,
+                split="val",
+                format=args.format,
+            ),
+            args.batch_size,
+            shuffle=False,
+            num_workers=args.n_workers,
+        )
     # Instantiate model + trainer
     if torch.cuda.is_available():
         device_name = "cuda"
-        torch.set_float32_matmul_precision("high")  # Allows using Tensor Cores on A100s
+        torch.set_float32_matmul_precision(
+            "high"
+        )  # Allows using Tensor Cores on A100s
     else:
         device_name = "cpu"
 
     # Load model parameters Use new args for model
     model_class = MODELS[args.model]
     if args.load:
-        model = model_class.load_from_checkpoint(args.load, args=args)
+        model = model_class.load_from_checkpoint(
+            args.load, args=args, strict=False
+        )
         if args.restore_opt:
             # Save for later
             # Unclear if this works for multi-GPU
@@ -453,14 +531,15 @@ def main():
         check_val_every_n_epoch=args.val_interval,
         precision=args.precision,
         num_sanity_val_steps=args.sanity_batches,
-        gradient_clip_val=args.grad_clip,
-        detect_anomaly=True,
+        gradient_clip_val=True,
+        # detect_anomaly=True,
     )
 
     # Only init once, on rank 0 only
     if trainer.global_rank == 0:
         utils.init_wandb_metrics(logger)  # Do after wandb.init
 
+    # log args to wandb
     if args.eval:
         if args.eval == "val":
             eval_loader = val_loader

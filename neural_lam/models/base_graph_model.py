@@ -260,6 +260,7 @@ class BaseGraphModel(ARModel):
         )
 
         # Embed all featupres
+        # breakpoint()
         grid_emb = self.grid_embedder(
             grid_features
         )  # (B, num_grid_nodes, d_h)
@@ -316,6 +317,65 @@ class BaseGraphModel(ARModel):
         # Residual connection for full state
         return prev_state + rescaled_delta_mean, pred_std
 
+    def classifier_step(self, batch):
+
+        (
+            init_states,
+            forcing_features,
+            target,
+        ) = batch[:3]
+        # breakpoint()
+        prev_prev_state = init_states[:, 0]
+        prev_state = init_states[:, 1]
+        forcing = forcing_features[:, 0]
+        batch_size = prev_state.shape[0]
+        # breakpoint()
+        self.grid_static_features = torch.nan_to_num(self.grid_static_features)
+        # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
+        grid_features = torch.cat(
+            (
+                prev_state,
+                prev_prev_state,
+                forcing,
+                self.expand_to_batch((self.grid_static_features), batch_size),
+            ),
+            dim=-1,
+        )
+
+        # Embed all featupres
+        # breakpoint()
+        grid_emb = self.grid_embedder(
+            grid_features
+        )  # (B, num_grid_nodes, d_h)
+        g2m_emb = self.g2m_embedder(self.g2m_features)  # (M_g2m, d_h)
+        m2g_emb = self.m2g_embedder(self.m2g_features)  # (M_m2g, d_h)
+        mesh_emb = self.embedd_mesh_nodes()
+
+        # Map from grid to mesh
+        mesh_emb_expanded = self.expand_to_batch(
+            mesh_emb, batch_size
+        )  # (B, num_mesh_nodes, d_h)
+        g2m_emb_expanded = self.expand_to_batch(g2m_emb, batch_size)
+
+        # This also splits representation into grid and mesh
+        mesh_rep = self.g2m_gnn(
+            grid_emb, mesh_emb_expanded, g2m_emb_expanded
+        )  # (B, num_mesh_nodes, d_h)
+        # Also MLP with residual for grid representation
+        grid_rep = grid_emb + self.encoding_grid_mlp(
+            grid_emb
+        )  # (B, num_grid_nodes, d_h)
+
+        # Run processor step
+        mesh_rep = self.process_step(mesh_rep)
+        # Global average pooling
+        mesh_rep = torch.mean(mesh_rep, dim=1)  # (B, d_h)
+
+        # Classification
+        output = self.classifier_module(mesh_rep)
+
+        return output.squeeze()
+
     def validation_step(self, batch, *args):
         """
         Run validation on single batch
@@ -323,6 +383,8 @@ class BaseGraphModel(ARModel):
         super().validation_step(batch, *args)
         batch_idx = args[0]
 
+        if self.classifier:
+            return
         # Plot some example predictions
         if (
             self.trainer.is_global_zero

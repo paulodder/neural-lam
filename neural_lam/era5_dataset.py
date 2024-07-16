@@ -12,7 +12,7 @@ from bwdl.named_configs import DatasetConfig
 
 
 class ERA5Dataset(Dataset):
-    """Dataset loading ERA5 from Zarr."""
+    """Dataset loading ERA5 from Zarr or NetCDF."""
 
     def __init__(
         self,
@@ -21,9 +21,12 @@ class ERA5Dataset(Dataset):
         split: str = "train",
         standardize: bool = True,
         expanded_test: bool = False,
+        format: str = "zarr",  # New parameter to specify the format
+        return_idxs=False,
     ):
         super().__init__()
         self._validate_split(split)
+        self.format = format
         variables = constants.PARAM_NAMES
         self.step_size = self._get_step_size(dataset_config.rolling_mean)
         self.pred_length = pred_length
@@ -33,7 +36,6 @@ class ERA5Dataset(Dataset):
 
         fields_xds, forcing_xda = self._load_data(dataset_name)
         self.atm_vars, self.surface_vars = self._filter_variables(variables)
-        # breakpoint()
         split_slice = self._get_split_slice(dataset_name, split, expanded_test)
         fields_ds_split = fields_xds.sel(time=split_slice)
         forcing_ds_split = forcing_xda.sel(time=split_slice)
@@ -43,17 +45,32 @@ class ERA5Dataset(Dataset):
         self._setup_data_arrays(fields_ds_split, forcing_ds_split)
 
         self.variables = variables
+        self.return_idxs = return_idxs
 
     def _validate_split(self, split: str):
         if split not in ("train", "val", "test"):
             raise ValueError("Unknown dataset split")
 
     def _load_data(self, dataset_name: str) -> Tuple[xa.Dataset, xa.DataArray]:
-        fields_path = DATA_DIR / "datasets" / dataset_name / "fields.zarr"
-        forcing_path = DATA_DIR / "datasets" / dataset_name / "forcing.zarr"
-        return xa.open_zarr(fields_path), xa.open_dataarray(
-            forcing_path, engine="zarr"
-        )
+        if self.format == "zarr":
+            fields_path = (
+                DATA_DIR / "datasets" / dataset_name / f"fields.{self.format}"
+            )
+            forcing_path = (
+                DATA_DIR / "datasets" / dataset_name / f"forcing.{self.format}"
+            )
+            fields_xds = xa.open_zarr(fields_path)
+            forcing_xda = xa.open_dataarray(forcing_path, engine="zarr")
+        elif self.format == "netcdf":
+            fields_path = DATA_DIR / "datasets" / dataset_name / f"fields.nc"
+            forcing_path = DATA_DIR / "datasets" / dataset_name / f"forcing.nc"
+
+            fields_xds = xa.open_dataset(fields_path)
+            forcing_xda = xa.open_dataarray(forcing_path)
+        else:
+            raise ValueError(f"Unsupported format: {self.format}")
+
+        return fields_xds, forcing_xda
 
     def _filter_variables(
         self, variables: List[str]
@@ -67,7 +84,6 @@ class ERA5Dataset(Dataset):
     ) -> slice:
         if "small" in dataset_name:
             return self._get_example_split_slice(split)
-        # return self._get_example_split_slice(split)
         return self._get_actual_split_slice(split, expanded_test)
 
     def _get_example_split_slice(self, split: str) -> slice:
@@ -82,12 +98,12 @@ class ERA5Dataset(Dataset):
         self, split: str, expanded_test: bool
     ) -> slice:
         split_slices = {
-            "train": slice("1959-01-01T12", "2017-12-31T12"),
-            "val": slice("2017-12-31T18", "2019-12-31T12"),
+            "train": slice("1959-01-01T12", "2010-12-31T12"),
+            "val": slice("2010-12-31T18", "2015-12-31T12"),
             "test": (
-                slice("2019-12-31T18", "2023-12-31T18")
+                slice("2015-12-31T18", "2023-12-31T18")
                 if expanded_test
-                else slice("2019-12-31T18", "2021-01-10T18")
+                else slice("2015-12-31T18", "2021-01-10T18")
             ),
         }
         return split_slices[split]
@@ -102,18 +118,12 @@ class ERA5Dataset(Dataset):
         if True:  # split == "train":
             self.ds_len = ds_timesteps
             self.init_all = True
-        # else:  # val, test
-        #     self.ds_len = int(np.ceil(ds_timesteps / 2))
-        #     self.init_all = False
 
     def _setup_standardization(self, dataset_name: str):
         if self.standardize:
             ds_stats = utils.load_dataset_stats(dataset_name, "cpu")
             self.data_mean = ds_stats["data_mean"]
             self.data_std = ds_stats["data_std"]
-            # selected_vars = self.atm_vars + self.surface_vars
-            self.data_mean = self.data_mean
-            self.data_std = self.data_std
 
     def _setup_data_arrays(
         self, fields_ds_split: xa.Dataset, forcing_ds_split: xa.DataArray
@@ -172,72 +182,44 @@ class ERA5Dataset(Dataset):
             return 3
         elif rolling_mean == "1w":
             return 7
+        elif rolling_mean == "7d":
+            return 7
         else:
             raise ValueError(f"Unsupported rolling mean: {rolling_mean}")
 
-    def __getitem__(
-        self, idx: int
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        # make positive index
+    def get_sample_slice(self, idx: int) -> slice:
         if idx < 0:
             idx = self.ds_len + idx
         if self.init_all:
-            init_i = idx + self.step_size  # s = idx+1
+            init_i = idx + self.step_size
         else:
-            # Only initialize at 00/12 UTC timesteps
-            init_i = self.step_size + idx * 2  # s = 1 + 2idx
+            init_i = self.step_size + idx * 2
+
         sample_slice = slice(
             init_i - self.step_size,
             init_i + ((self.pred_length + 1) * self.step_size),
             self.step_size,
         )
+        return sample_slice
+
+    def __getitem__(
+        self, idx: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        sample_slice = self.get_sample_slice(idx)
         full_series_len = self.pred_length + 2
 
-        # if self.init_all:
-        #     init_i = self.step_size * (idx + 1)
-        # else:
-        #     init_i = 1 + idx * 2 * self.step_size
-
-        # sample_slice = slice(
-        #     init_i - self.step_size,
-        #     init_i + (self.pred_length + 1) * self.step_size,
-        #     self.step_size,
-        # )
-        # full_series_len = self.pred_length + 2
-
         full_state_torch = self._get_full_state(sample_slice, full_series_len)
-        # replace np.nan with 0
         full_state_torch = torch.nan_to_num(full_state_torch)
         init_states, target_states = self._split_states(full_state_torch)
         forcing_torch = self._get_forcing(sample_slice, full_series_len)
+        if self.return_idxs:
 
+            return init_states, forcing_torch, target_states, idx
         return init_states, target_states, forcing_torch
 
-    # def __getitem__(
-    #     self, idx: int
-    # ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    #     init_i = idx + 1 if self.init_all else 1 + idx * 2
-    #     sample_slice = slice(init_i - 1, init_i + self.pred_length + 1)
-    #     full_series_len = self.pred_length + 2
-
-    #     full_state_torch = self._get_full_state(sample_slice, full_series_len)
-    #     init_states, target_states = self._split_states(full_state_torch)
-    #     forcing_torch = self._get_forcing(sample_slice, full_series_len)
-
-    #     return init_states, target_states, forcing_torch
-
-    # def __getitem__(
-    #     self, idx: int
-    # ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    #     init_i = idx + 1 if self.init_all else 1 + idx * 2
-    #     sample_slice = slice(init_i - 1, init_i + self.pred_length + 1)
-    #     full_series_len = self.pred_length + 2
-
-    #     full_state_torch = self._get_full_state(sample_slice, full_series_len)
-    #     init_states, target_states = self._split_states(full_state_torch)
-    #     forcing_torch = self._get_forcing(sample_slice, full_series_len)
-
-    #     return init_states, target_states, forcing_torch
+    def _get_dates(self, idx: int) -> List[str]:
+        sample_slice = self.get_sample_slice(idx)
+        return self.atm_xda.time[sample_slice].values
 
     def _get_full_state(
         self, sample_slice: slice, full_series_len: int
@@ -296,7 +278,6 @@ class ERA5Dataset(Dataset):
         self, sample_slice: slice, full_series_len: int
     ) -> torch.Tensor:
         forcing_np = self.forcing_xda[sample_slice].to_numpy()
-        # replace np.nan with 0
         forcing_np = np.nan_to_num(forcing_np)
         forcing_flat_np = forcing_np.reshape(
             full_series_len, -1, forcing_np.shape[-1]
