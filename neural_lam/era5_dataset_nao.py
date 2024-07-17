@@ -67,7 +67,7 @@ class ERA5NAODataset(ERA5Dataset):
 
         # Adjust dataset length
 
-        self.ds_len = len(self.atm_xda.time) - self.lead_time - 1
+        self.ds_len = len(self.atm_xda.time) - self.lead_time - 14
         # print("Dataset length adjusted to:", self.ds_len)
 
     def __getitem__(
@@ -86,10 +86,12 @@ class ERA5NAODataset(ERA5Dataset):
 
     def _get_nao_target(self, idx: int) -> torch.Tensor:
         sample_slice = self.get_sample_slice(idx)
+        # print("Sample slice:", sample_slice)
         era5_date = self.atm_xda.time[sample_slice].values[2]
         target_date = era5_date + np.timedelta64(self.lead_time, "D")
 
         try:
+
             nao_value = self.nao_ds_split.sel(time=target_date).values.item()
         except KeyError:
             raise KeyError(

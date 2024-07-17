@@ -6,6 +6,7 @@ from neural_lam import utils
 from neural_lam.interaction_net import InteractionNet
 from neural_lam.models.base_graph_model import BaseGraphModel
 from torch import nn
+import torch
 
 
 class GraphCast(BaseGraphModel):
@@ -57,11 +58,57 @@ class GraphCast(BaseGraphModel):
         )
         self.classifier = args.classifier
         if self.classifier:
+            self.pooled_mesh_size = self.num_mesh_nodes // 4
+            if self.num_mesh_nodes % 4 != 0:
+                self.pooled_mesh_size += 1  # Adjust for any remainder
+
+            # Modify classifier module
             self.classifier_module = nn.Sequential(
+                nn.Linear(
+                    self.pooled_mesh_size * args.hidden_dim, args.hidden_dim
+                ),
+                nn.ReLU(),
                 nn.Linear(args.hidden_dim, args.hidden_dim // 2),
                 nn.ReLU(),
                 nn.Linear(args.hidden_dim // 2, 1),
             )
+            # self.classifier_module = nn.Sequential(
+            #     nn.Linear(args.hidden_dim * 2, args.hidden_dim),
+            #     nn.ReLU(),
+            #     nn.Linear(args.hidden_dim // 4, 1),
+            # )
+            # self.classifier_module = nn.Sequential(
+            #     nn.Linear(args.hidden_dim // 2, args.hidden_dim // 4),
+            #     nn.ReLU(),
+            #     nn.Linear(args.hidden_dim // 4, 1),
+            #     nn.Sigmoid(),
+            # )
+            if args.freeze:
+                self.freeze_all_except_classifier_and_pooling()
+                # self.print_trainable_parameters()
+
+    def print_trainable_parameters(self):
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                print(f"{name} is trainable")
+            else:
+                print(f"{name} is frozen")
+
+    def set_requires_grad(self, model, requires_grad=True):
+        for param in model.parameters():
+            param.requires_grad = requires_grad
+
+    def freeze_all_except_classifier_and_pooling(self):
+        # Freeze all parameters
+        self.set_requires_grad(self, False)
+
+        # Unfreeze LearnableSpatialPooling
+        if hasattr(self, "spatial_pooling"):
+            self.set_requires_grad(self.spatial_pooling, True)
+
+        # Unfreeze classifier module
+        if hasattr(self, "classifier_module"):
+            self.set_requires_grad(self.classifier_module, True)
 
     def get_num_mesh(self):
         """
