@@ -27,6 +27,7 @@ from bwdl.named_configs import (
     RunConfig,
 )
 from bwdl.constants import CHECKPOINT_DIR
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 MODELS = {
     "graphcast": GraphCast,
@@ -51,6 +52,7 @@ def parse_args():
         help="Dataset, corresponding to name in data directory "
         "(default: meps_example)",
     )
+
     parser.add_argument(
         "--dataset_fraction",
         type=float,
@@ -63,6 +65,7 @@ def parse_args():
         default=3,
     )
     parser.add_argument("--classifier", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--freeze", action=argparse.BooleanOptionalAction)
     parser.add_argument(
         "--model",
         type=str,
@@ -83,6 +86,12 @@ def parse_args():
         type=int,
         default=16,
         help="Number of workers in data loader (default: 4)",
+    )
+    parser.add_argument(
+        "--overfit_batches",
+        type=int,
+        default=0,
+        help="Number of batches to overfit on (default: 0)",
     )
     parser.add_argument(
         "--devices",
@@ -357,6 +366,11 @@ def parse_args():
         default=5,
         help="Number of ensemble members during evaluation (default: 5)",
     )
+    parser.add_argument(
+        "--experiment_name",
+        type=str,
+        help="Name of experiment, used for saving models and logs",
+    )
     args = parser.parse_args()
     return args
 
@@ -452,6 +466,18 @@ def main():
             shuffle=False,
             num_workers=args.n_workers,
         )
+        test_dataset = ERA5NAODataset(
+            dataset_config,
+            lead_time=args.lead_time,
+            split="test",
+            format=args.format,
+        )
+        test_loader = torch.utils.data.DataLoader(
+            test_dataset,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.n_workers,
+        )
 
     else:
         train_loader = torch.utils.data.DataLoader(
@@ -478,6 +504,18 @@ def main():
             shuffle=False,
             num_workers=args.n_workers,
         )
+        test_loader = torch.utils.data.DataLoader(
+            ERA5Dataset(
+                dataset_config,
+                pred_length=args.eval_leads,
+                split="test",
+                format=args.format,
+            ),
+            args.batch_size,
+            shuffle=False,
+            num_workers=args.n_workers,
+        )
+
     # Instantiate model + trainer
     if torch.cuda.is_available():
         device_name = "cuda"
@@ -535,27 +573,22 @@ def main():
     checkpoint_times = constants.VAL_STEP_CHECKPOINTS[
         constants.VAL_STEP_CHECKPOINTS <= args.eval_leads
     ]
-    for unroll_time in checkpoint_times:
-        metric_name = f"val_loss_unroll{unroll_time}"
-        callbacks.append(
-            pl.callbacks.ModelCheckpoint(
-                dirpath=f"saved_models/{run_name}",
-                filename=f"min_{metric_name}",
-                monitor=metric_name,
-                mode="min",
-            )
-        )
-    # run_config = RunConfig(
-    #     dataset_config,
 
     logger = pl.loggers.WandbLogger(
         project=constants.WANDB_PROJECT, name=run_name, config=args
     )
+    # log EXPERIMENT_NAME
+    logger.log_hyperparams({"experiment_name": args.experiment_name})
+
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+    callbacks.append(lr_monitor)
 
     # Training strategy
     # If doing pure autoencoder training (kl_beta = 0), the prior network is not
     # used at all in producing the loss. This is desired, but DDP complains.
-    strategy = "ddp" if args.kl_beta > 0 else "ddp_find_unused_parameters_true"
+    strategy = (
+        "ddp" if not args.classifier else "ddp_find_unused_parameters_true"
+    )
 
     trainer = pl.Trainer(
         max_epochs=args.epochs,
@@ -570,6 +603,7 @@ def main():
         precision=args.precision,
         num_sanity_val_steps=args.sanity_batches,
         gradient_clip_val=True,
+        overfit_batches=args.overfit_batches,
         # detect_anomaly=True,
     )
 
@@ -621,6 +655,9 @@ def main():
             train_dataloaders=train_loader,
             val_dataloaders=val_loader,
         )
+
+    # test
+    trainer.test(model=model, dataloaders=test_loader)
 
 
 if __name__ == "__main__":

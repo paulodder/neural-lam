@@ -267,7 +267,9 @@ class ARModel(pl.LightningModule):
         """
         if self.classifier:
             pred = self.classifier_step(batch)
-            batch_loss = self.loss(pred, batch)
+            target_tensor = batch[2].to(torch.bfloat16)
+            pred_tensor = pred.to(torch.bfloat16)
+            batch_loss = self.loss(pred_tensor, target_tensor)
             log_dict = {"train_loss": batch_loss}
             self.log_dict(
                 log_dict,
@@ -318,8 +320,10 @@ class ARModel(pl.LightningModule):
         """
 
         pred = self.classifier_step(batch)
-        # breakpoint()
+        # print(pred)
+
         target_tensor = batch[2].to(torch.bfloat16)
+        # print(target_tensor)
         pred_tensor = pred.to(torch.bfloat16)
         loss = self.loss(pred_tensor, target_tensor)
         target_tensor = target_tensor.to(torch.float32)
@@ -329,7 +333,36 @@ class ARModel(pl.LightningModule):
         self.log(
             "val_acc", accuracy, on_step=False, on_epoch=True, sync_dist=True
         )
-        self.log("val_loss", loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log(
+            "val_mean_loss", loss, on_step=False, on_epoch=True, sync_dist=True
+        )
+
+    def test_step_classifier(self, batch):
+        """
+        test on single batch
+        """
+
+        pred = self.classifier_step(batch)
+        # print(pred)
+
+        target_tensor = batch[2].to(torch.bfloat16)
+        # print(target_tensor)
+        pred_tensor = pred.to(torch.bfloat16)
+        loss = self.loss(pred_tensor, target_tensor)
+        target_tensor = target_tensor.to(torch.float32)
+        pred_tensor = pred_tensor.to(torch.float32)
+
+        accuracy = self.accuracy(pred_tensor, target_tensor)
+        self.log(
+            "test_acc", accuracy, on_step=False, on_epoch=True, sync_dist=True
+        )
+        self.log(
+            "test_mean_loss",
+            loss,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
 
     # newer lightning versions requires batch_idx argument, even if unused
     # pylint: disable-next=unused-argument
@@ -407,7 +440,10 @@ class ARModel(pl.LightningModule):
         """
         Run test on single batch
         """
+        if self.classifier:
+            return self.test_step_classifier(batch)
         prediction, target, pred_std = self.common_step(batch)
+
         # prediction: (B, pred_steps, num_grid_nodes, d_f)
         # pred_std: (B, pred_steps, num_grid_nodes, d_f) or (d_f,)
 
@@ -664,6 +700,10 @@ class ARModel(pl.LightningModule):
         Compute test metrics and make plots at the end of test epoch.
         Will gather stored tensors and perform plotting and logging on rank 0.
         """
+        # Create error maps for all test metrics
+        if self.classifier:
+            return
+
         # Create error maps for all test metrics
         self.aggregate_and_plot_metrics(self.test_metrics, prefix="test")
 

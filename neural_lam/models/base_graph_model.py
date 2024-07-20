@@ -2,11 +2,14 @@
 import matplotlib.pyplot as plt
 import torch
 import wandb
+from torch import nn
 
 # First-party
 from neural_lam import constants, utils, vis
 from neural_lam.interaction_net import InteractionNet, PropagationNet
 from neural_lam.models.ar_model import ARModel
+
+import torch.nn.functional as F
 
 
 class BaseGraphModel(ARModel):
@@ -50,7 +53,7 @@ class BaseGraphModel(ARModel):
         self.grid_embedder = utils.make_mlp(
             [self.grid_dim] + self.mlp_blueprint_end
         )
-        print([self.grid_dim] + self.mlp_blueprint_end)
+        # print([self.grid_dim] + self.mlp_blueprint_end)
         self.g2m_embedder = utils.make_mlp([g2m_dim] + self.mlp_blueprint_end)
         self.m2g_embedder = utils.make_mlp([m2g_dim] + self.mlp_blueprint_end)
 
@@ -318,20 +321,13 @@ class BaseGraphModel(ARModel):
         return prev_state + rescaled_delta_mean, pred_std
 
     def classifier_step(self, batch):
-
-        (
-            init_states,
-            forcing_features,
-            target,
-        ) = batch[:3]
-        # breakpoint()
+        init_states, forcing_features, target = batch[:3]
         prev_prev_state = init_states[:, 0]
         prev_state = init_states[:, 1]
         forcing = forcing_features[:, 0]
         batch_size = prev_state.shape[0]
-        # breakpoint()
+
         self.grid_static_features = torch.nan_to_num(self.grid_static_features)
-        # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
         grid_features = torch.cat(
             (
                 prev_state,
@@ -342,39 +338,33 @@ class BaseGraphModel(ARModel):
             dim=-1,
         )
 
-        # Embed all featupres
-        # breakpoint()
-        grid_emb = self.grid_embedder(
-            grid_features
-        )  # (B, num_grid_nodes, d_h)
-        g2m_emb = self.g2m_embedder(self.g2m_features)  # (M_g2m, d_h)
-        m2g_emb = self.m2g_embedder(self.m2g_features)  # (M_m2g, d_h)
+        grid_emb = self.grid_embedder(grid_features)
+        g2m_emb = self.g2m_embedder(self.g2m_features)
+        m2g_emb = self.m2g_embedder(self.m2g_features)
         mesh_emb = self.embedd_mesh_nodes()
 
-        # Map from grid to mesh
-        mesh_emb_expanded = self.expand_to_batch(
-            mesh_emb, batch_size
-        )  # (B, num_mesh_nodes, d_h)
+        mesh_emb_expanded = self.expand_to_batch(mesh_emb, batch_size)
         g2m_emb_expanded = self.expand_to_batch(g2m_emb, batch_size)
 
-        # This also splits representation into grid and mesh
-        mesh_rep = self.g2m_gnn(
-            grid_emb, mesh_emb_expanded, g2m_emb_expanded
-        )  # (B, num_mesh_nodes, d_h)
-        # Also MLP with residual for grid representation
-        grid_rep = grid_emb + self.encoding_grid_mlp(
-            grid_emb
-        )  # (B, num_grid_nodes, d_h)
+        mesh_rep = self.g2m_gnn(grid_emb, mesh_emb_expanded, g2m_emb_expanded)
+        grid_rep = grid_emb + self.encoding_grid_mlp(grid_emb)
 
-        # Run processor step
         mesh_rep = self.process_step(mesh_rep)
-        # Global average pooling
-        mesh_rep = torch.mean(mesh_rep, dim=1)  # (B, d_h)
+
+        # Apply average pooling to downsample by a factor of 4
+        torch.use_deterministic_algorithms(False, warn_only=True)
+        pooled_mesh_rep = F.adaptive_avg_pool1d(
+            mesh_rep.transpose(1, 2), self.pooled_mesh_size
+        ).transpose(1, 2)
+        torch.use_deterministic_algorithms(True, warn_only=True)
+
+        # Flatten the pooled representation
+        flattened_rep = pooled_mesh_rep.reshape(batch_size, -1)
 
         # Classification
-        output = self.classifier_module(mesh_rep)
+        output = self.classifier_module(flattened_rep)
 
-        return output.squeeze()
+        return output[:, 0]
 
     def validation_step(self, batch, *args):
         """
