@@ -413,6 +413,13 @@ def get_split_config_for_percentage(dataset_fraction):
         + new_train_duration
     )
     split_config.train_start = new_train_start.strftime("%Y-%m-%dT%H")
+    # do a nice printing with # years in each split
+    print(
+        f"Reducing dataset to {dataset_fraction * 100}% of original size. "
+        f"Train: {split_config.train_duration.days // 365} years, "
+        f"Val: {split_config.val_duration.days // 365} years, "
+        f"Test: {split_config.test_duration.days // 365} years"
+    )
     return split_config
 
 
