@@ -22,17 +22,15 @@ class ARModel(pl.LightningModule):
     # pylint: disable=arguments-differ
     # Disable to override args/kwargs from superclass
 
-    def __init__(self, args):
+    def __init__(self, args, dataset_config, output_std=False):
         super().__init__()
         # Load static features for grid/data
-        static_data_dict = utils.load_static_data(args.dataset)
+        static_data_dict = utils.load_static_data(dataset_config.dataset)
         # print(static_data_dict.keys())
         for static_data_name, static_data_tensor in static_data_dict.items():
             self.register_buffer(
                 static_data_name, static_data_tensor, persistent=False
             )
-
-        self.args = args
 
         # todo
         self.accuracy = BinaryAccuracy()
@@ -41,7 +39,7 @@ class ARModel(pl.LightningModule):
         self.step_diff_std = torch.nan_to_num(self.step_diff_std)
 
         # Double grid output dim. to also output std.-dev.
-        self.output_std = bool(args.output_std)
+        self.output_std = output_std
         if self.output_std:
             self.grid_output_dim = (
                 2 * constants.GRID_STATE_DIM

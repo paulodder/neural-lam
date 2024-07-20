@@ -15,6 +15,7 @@ class ERA5NAODataset(ERA5Dataset):
     def __init__(
         self,
         dataset_config: DatasetConfig,
+        split_config: DatasetConfig,
         lead_time: int = 1,
         split: str = "train",
         standardize: bool = True,
@@ -24,6 +25,7 @@ class ERA5NAODataset(ERA5Dataset):
     ):
         super().__init__(
             dataset_config,
+            split_config,
             pred_length=1,
             split=split,
             standardize=standardize,

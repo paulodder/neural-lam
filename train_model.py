@@ -1,5 +1,6 @@
 # Standard library
 import random
+from datetime import datetime
 import time
 from argparse import ArgumentParser
 import argparse
@@ -18,7 +19,13 @@ from neural_lam.models.graph_efm import GraphEFM
 from neural_lam.models.graph_fm import GraphFM
 from neural_lam.models.graphcast import GraphCast
 from neural_lam.weather_dataset import WeatherDataset
-from bwdl.named_configs import DatasetConfig, GlobalMeshConfig
+from bwdl.named_configs import (
+    DatasetConfig,
+    GlobalMeshConfig,
+    SplitConfig,
+    # ModelConfig,
+    RunConfig,
+)
 from bwdl.constants import CHECKPOINT_DIR
 
 MODELS = {
@@ -43,6 +50,12 @@ def parse_args():
         default="era5_1.5_1d",
         help="Dataset, corresponding to name in data directory "
         "(default: meps_example)",
+    )
+    parser.add_argument(
+        "--dataset_fraction",
+        type=float,
+        default=1,
+        help="Dataset fraction to train on (default: 1)",
     )
     parser.add_argument(
         "--lead_time",
@@ -372,6 +385,23 @@ class NaNDetector(Callback):
                 breakpoint()
 
 
+def get_split_config_for_percentage(dataset_fraction):
+    """Given a floating point percentage, return a SplitConfig with the
+    corresponding train/val/test split dates."""
+    split_config = SplitConfig()  # use default values
+    # increaes value of train_start so that the dataset is reduced accordingly
+    train_duration = datetime.strptime(
+        split_config.train_end, "%Y-%m-%dT%H"
+    ) - datetime.strptime(split_config.train_start, "%Y-%m-%dT%H")
+    new_train_duration = train_duration * (1 - dataset_fraction)
+    new_train_start = (
+        datetime.strptime(split_config.train_start, "%Y-%m-%dT%H")
+        + new_train_duration
+    )
+    split_config.train_start = new_train_start.strftime("%Y-%m-%dT%H")
+    return split_config
+
+
 def main():
     """
     Main function for training and evaluating models
@@ -379,6 +409,8 @@ def main():
     args = parse_args()
     dataset_config = DatasetConfig.from_name(args.dataset)
     global_mesh_config = GlobalMeshConfig.from_args(args)
+    split_config = get_split_config_for_percentage(args.dataset_fraction)
+    # model_config = ModelConfig.from_args(args)
     # Asserts for arguments
     assert args.model in MODELS, f"Unknown model: {args.model}"
     assert args.eval in (
@@ -397,6 +429,7 @@ def main():
     if args.classifier:
         train_dataset = ERA5NAODataset(
             dataset_config,
+            split_config,
             lead_time=args.lead_time,
             split="train",
             format=args.format,
@@ -424,6 +457,7 @@ def main():
         train_loader = torch.utils.data.DataLoader(
             ERA5Dataset(
                 dataset_config,
+                split_config,
                 pred_length=args.ar_steps,
                 split="train",
                 format=args.format,
@@ -435,6 +469,7 @@ def main():
         val_loader = torch.utils.data.DataLoader(
             ERA5Dataset(
                 dataset_config,
+                split_config,
                 pred_length=args.eval_leads,
                 split="val",
                 format=args.format,
@@ -510,6 +545,9 @@ def main():
                 mode="min",
             )
         )
+    # run_config = RunConfig(
+    #     dataset_config,
+
     logger = pl.loggers.WandbLogger(
         project=constants.WANDB_PROJECT, name=run_name, config=args
     )
@@ -547,6 +585,7 @@ def main():
             eval_loader = torch.utils.data.DataLoader(
                 ERA5Dataset(
                     dataset_config,
+                    split_config,
                     pred_length=args.eval_leads,
                     split="test",
                     subsample_step=args.step_length,

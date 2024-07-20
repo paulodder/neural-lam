@@ -17,6 +17,7 @@ class ERA5Dataset(Dataset):
     def __init__(
         self,
         dataset_config,
+        split_config,
         pred_length: int = 40,
         split: str = "train",
         standardize: bool = True,
@@ -32,6 +33,7 @@ class ERA5Dataset(Dataset):
         self.pred_length = pred_length
         self.standardize = standardize
         self.dataset_config = dataset_config
+        self.split_config = split_config
         dataset_name = dataset_config.name
 
         fields_xds, forcing_xda = self._load_data(dataset_name)
@@ -97,15 +99,16 @@ class ERA5Dataset(Dataset):
     def _get_actual_split_slice(
         self, split: str, expanded_test: bool
     ) -> slice:
-        split_slices = {
-            "train": slice("1959-01-01T12", "2010-12-31T12"),
-            "val": slice("2010-12-31T18", "2015-12-31T12"),
-            "test": (
-                slice("2015-12-31T18", "2023-12-31T18")
-                if expanded_test
-                else slice("2015-12-31T18", "2021-01-10T18")
-            ),
-        }
+        split_slices = self.split_config.to_slices()
+        # split_slices = {
+        #     "train": slice("1959-01-01T12", "2010-12-31T12"),
+        #     "val": slice("2010-12-31T18", "2015-12-31T12"),
+        #     "test": (
+        #         slice("2015-12-31T18", "2023-12-31T18")
+        #         if expanded_test
+        #         else slice("2015-12-31T18", "2021-01-10T18")
+        #     ),
+        # }
         return split_slices[split]
 
     def _setup_dataset_length(self, split: str, timesteps_in_split: int):
