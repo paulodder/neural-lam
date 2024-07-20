@@ -22,10 +22,11 @@ class ARModel(pl.LightningModule):
     # pylint: disable=arguments-differ
     # Disable to override args/kwargs from superclass
 
-    def __init__(self, args, dataset_config, output_std=False):
+    def __init__(self, args, output_std=False):
         super().__init__()
         # Load static features for grid/data
-        static_data_dict = utils.load_static_data(dataset_config.dataset)
+        self.args = args
+        static_data_dict = utils.load_static_data(args.dataset)
         # print(static_data_dict.keys())
         for static_data_name, static_data_tensor in static_data_dict.items():
             self.register_buffer(

@@ -16,8 +16,8 @@ class GraphCast(BaseGraphModel):
     Keisler (2022) is almost identical.
     """
 
-    def __init__(self, args, global_mesh_config):
-        super().__init__(args, global_mesh_config)
+    def __init__(self, args, global_mesh_config, output_std):
+        super().__init__(args, global_mesh_config, output_std)
 
         assert (
             not self.hierarchical

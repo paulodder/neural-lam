@@ -84,8 +84,6 @@ class ERA5Dataset(Dataset):
     def _get_split_slice(
         self, dataset_name: str, split: str, expanded_test: bool
     ) -> slice:
-        if "small" in dataset_name:
-            return self._get_example_split_slice(split)
         return self._get_actual_split_slice(split, expanded_test)
 
     def _get_example_split_slice(self, split: str) -> slice:

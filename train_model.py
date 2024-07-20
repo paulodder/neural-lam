@@ -450,6 +450,7 @@ def main():
         )
         val_dataset = ERA5NAODataset(
             dataset_config,
+            split_config,
             lead_time=args.lead_time,
             split="val",
             format=args.format,
@@ -468,6 +469,7 @@ def main():
         )
         test_dataset = ERA5NAODataset(
             dataset_config,
+            split_config,
             lead_time=args.lead_time,
             split="test",
             format=args.format,
@@ -507,6 +509,7 @@ def main():
         test_loader = torch.utils.data.DataLoader(
             ERA5Dataset(
                 dataset_config,
+                split_config,
                 pred_length=args.eval_leads,
                 split="test",
                 format=args.format,
@@ -536,7 +539,9 @@ def main():
             # Unclear if this works for multi-GPU
             model.opt_state = torch.load(args.load)["optimizer_states"][0]
     else:
-        model = model_class(args, global_mesh_config)
+        model = model_class(
+            args, global_mesh_config, output_std=args.output_std
+        )
 
     prefix = ""
     if args.eval:

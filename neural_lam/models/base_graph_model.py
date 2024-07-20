@@ -18,8 +18,8 @@ class BaseGraphModel(ARModel):
     the encode-process-decode idea.
     """
 
-    def __init__(self, args, global_mesh_config):
-        super().__init__(args)
+    def __init__(self, args, global_mesh_config, output_std):
+        super().__init__(args, output_std)
 
         assert (
             args.eval is None or args.n_example_pred <= args.batch_size
