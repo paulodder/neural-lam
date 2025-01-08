@@ -13,7 +13,7 @@ from pytorch_forecasting.metrics.quantile import QuantileLoss
 class GraphCastQuant:
     """
     Modified GraphCast model for binary classification tasks,
-    with ability to load pre-trained GraphCast weights.
+    with ability to load pre-trained GraphCast weights.mv
     """
 
     def __init__(self, args, global_mesh_config, pretrained_path=None):
@@ -65,7 +65,7 @@ class GraphCastQuant:
         """
         grid_state, grid_forcing, target = batch
         pred = self(grid_state, grid_forcing)
-        loss = nn.BCELoss()(pred, target.float())
+        loss = self.loss_module(pred, target.float())
 
         self.log(
             "train_loss",
