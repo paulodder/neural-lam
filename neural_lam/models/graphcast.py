@@ -9,7 +9,7 @@ from torch import nn
 import torch
 
 
-class GraphCast(BaseGraphModel):
+uclass GraphCast(BaseGraphModel):
     """
     Full graph-based model that can be used with different
     (non-hierarchical) graphs. Mainly based on GraphCast, but the model from

@@ -11,7 +11,7 @@ from tueplots import bundles, figsizes
 # First-party
 from neural_lam import constants
 from neural_lam.interaction_net import InteractionNet
-from bwdl.constants import DATASETS_DIR, GRAPHS_DIR
+from atmos.constants import DATASETS_DIR, GRAPHS_DIR
 
 
 def load_dataset_stats(dataset_name, device="cpu"):

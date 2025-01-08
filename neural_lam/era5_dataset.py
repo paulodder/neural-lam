@@ -7,8 +7,8 @@ import xarray as xa
 from torch.utils.data import Dataset
 
 from neural_lam import constants, utils
-from bwdl.constants import DATA_DIR
-from bwdl.named_configs import DatasetConfig
+from atmos.constants import DATA_DIR
+from atmos.models.graphcast.named_configs import DatasetConfig
 
 
 class ERA5Dataset(Dataset):
