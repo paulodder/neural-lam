@@ -8,9 +8,10 @@ from neural_lam.models.graphcast import (
     GraphCast,
 )  # Import the original GraphCast
 from pytorch_forecasting.metrics.quantile import QuantileLoss
+import pytorch_lightning as pl
 
 
-class GraphCastQuant:
+class GraphCastQuant(pl.LightningModule):
     """
     Modified GraphCast model for binary classification tasks,
     with ability to load pre-trained GraphCast weights.mv
@@ -29,11 +30,15 @@ class GraphCastQuant:
         for param in self.graphcast.parameters():
             param.requires_grad = False
 
+        num_timesteps = 1
+        num_quantiles = 3
+        output_shape = (num_timesteps, num_quantiles)
+
         # Classification head
         self.quantifier = nn.Sequential(
             nn.Linear(args.hidden_dim, args.hidden_dim // 2),
             nn.ReLU(),
-            nn.Linear(args.hidden_dim // 2, 1),
+            nn.Linear(args.hidden_dim // 2, output_shape[0] * output_shape[1]),
             nn.Sigmoid(),
         )
 

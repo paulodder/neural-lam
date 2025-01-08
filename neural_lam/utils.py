@@ -45,7 +45,7 @@ def load_static_data(dataset_name, device="cpu"):
     """
     Load static files related to dataset
     """
-    static_dir_path = DATASETS_DIR / dataset_name / "static"
+    static_dir_path = DATASETS_DIR / dataset_name / "graphcast"
 
     def loads_file(fn):
         return torch.load(
