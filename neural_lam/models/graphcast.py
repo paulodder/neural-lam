@@ -44,7 +44,7 @@ class GraphCast(BaseGraphModel):
             InteractionNet(
                 self.m2m_edge_index,
                 args.hidden_dim,
-                hidden_layers=args.hidden_layers,
+                hidden_layers=args.hidden_layers,gra
                 aggr=args.mesh_aggr,
             )
             for _ in range(args.processor_layers)
@@ -56,36 +56,9 @@ class GraphCast(BaseGraphModel):
                 for net in processor_nets
             ],
         )
-        self.classifier = args.classifier
-        if self.classifier:
-            self.pooled_mesh_size = self.num_mesh_nodes // 4
-            if self.num_mesh_nodes % 4 != 0:
-                self.pooled_mesh_size += 1  # Adjust for any remainder
-
-            # Modify classifier module
-            self.classifier_module = nn.Sequential(
-                nn.Linear(
-                    self.pooled_mesh_size * args.hidden_dim, args.hidden_dim
-                ),
-                nn.ReLU(),
-                nn.Linear(args.hidden_dim, args.hidden_dim // 2),
-                nn.ReLU(),
-                nn.Linear(args.hidden_dim // 2, 1),
-            )
-            # self.classifier_module = nn.Sequential(
-            #     nn.Linear(args.hidden_dim * 2, args.hidden_dim),
-            #     nn.ReLU(),
-            #     nn.Linear(args.hidden_dim // 4, 1),
-            # )
-            # self.classifier_module = nn.Sequential(
-            #     nn.Linear(args.hidden_dim // 2, args.hidden_dim // 4),
-            #     nn.ReLU(),
-            #     nn.Linear(args.hidden_dim // 4, 1),
-            #     nn.Sigmoid(),
-            # )
-            if args.freeze:
-                self.freeze_all_except_classifier_and_pooling()
-                # self.print_trainable_parameters()
+        if args.freeze:
+            self.freeze_all_except_classifier_and_pooling()
+            # self.print_trainable_parameters()
 
     def print_trainable_parameters(self):
         for name, param in self.named_parameters():

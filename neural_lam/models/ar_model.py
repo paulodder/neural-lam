@@ -36,8 +36,8 @@ class ARModel(pl.LightningModule):
         # todo
         self.accuracy = BinaryAccuracy()
 
-        self.step_diff_mean = torch.nan_to_num(self.step_diff_mean)
-        self.step_diff_std = torch.nan_to_num(self.step_diff_std)
+        # self.step_diff_mean = torch.nan_to_num(self.step_diff_mean)
+        # self.step_diff_std = torch.nan_to_num(self.step_diff_std)
 
         # Double grid output dim. to also output std.-dev.
         self.output_std = output_std
@@ -53,11 +53,11 @@ class ARModel(pl.LightningModule):
             # Store constant per-variable std.-dev. weighting
             # Note that this is the inverse of the multiplicative weighting
             # in wMSE/wMAE
-            self.register_buffer(
-                "per_var_std",
-                self.step_diff_std / torch.sqrt(self.param_weights),
-                persistent=False,
-            )
+            # self.register_buffer(
+            #     "per_var_std",
+            #     self.step_diff_std / torch.sqrt(self.param_weights),
+            #     persistent=False,
+            # )
 
         # grid_dim from data + static
         (
@@ -70,8 +70,8 @@ class ARModel(pl.LightningModule):
             + constants.GRID_FORCING_DIM
         )
 
-        # Instantiate loss function
-        self.loss = metrics.get_metric(args.loss)
+        # # Instantiate loss function
+        # self.loss = metrics.get_metric(args.loss)
 
         self.boundary_forcing = self.border_mask is not None
         if self.boundary_forcing:

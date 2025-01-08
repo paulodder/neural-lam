@@ -80,29 +80,29 @@ def load_static_data(dataset_name, device="cpu"):
     )  # (N_grid, d_grid_static)
 
     # Load step diff stats
-    step_diff_mean = loads_file("diff_mean.pt")  # (d_f,)
-    step_diff_std = loads_file("diff_std.pt")  # (d_f,)
+    # step_diff_mean = loads_file("diff_mean.pt")  # (d_f,)
+    # step_diff_std = loads_file("diff_std.pt")  # (d_f,)
 
     # Load parameter std for computing validation errors in original data scale
-    data_mean = loads_file("parameter_mean.pt")  # (d_features,)
-    data_std = loads_file("parameter_std.pt")  # (d_features,)
+    # data_mean = loads_file("parameter_mean.pt")  # (d_features,)
+    # data_std = loads_file("parameter_std.pt")  # (d_features,)
 
     # Load loss weighting vectors
-    param_weights = torch.tensor(
-        np.load(os.path.join(static_dir_path, "parameter_weights.npy")),
-        dtype=torch.float32,
-        device=device,
-    )  # (d_f,)
+    # param_weights = torch.tensor(
+    #     np.load(os.path.join(static_dir_path, "parameter_weights.npy")),
+    #     dtype=torch.float32,
+    #     device=device,
+    # )  # (d_f,)
 
     return {
         "grid_weights": grid_weights,
         "border_mask": border_mask,
         "grid_static_features": grid_static_features,
-        "step_diff_mean": step_diff_mean,
-        "step_diff_std": step_diff_std,
-        "data_mean": data_mean,
-        "data_std": data_std,
-        "param_weights": param_weights,
+        # "step_diff_mean": step_diff_mean,
+        # "step_diff_std": step_diff_std,
+        # "data_mean": data_mean,
+        # "data_std": data_std,
+        # "param_weights": param_weights,
     }
 
 
@@ -131,12 +131,20 @@ class BufferList(nn.Module):
         return (self[i] for i in range(len(self)))
 
 
+GRAPH_PATH = (
+    DATASETS_DIR
+    / "processed"
+    / "1959-2022-1h-360x181_equiangular_with_poles_conservative_2017-08-01_to_2017-08-07"
+    / "graphcast"
+)
+
+
 def load_graph(global_mesh_config, device="cpu"):
     """
     Load all tensors representing the graph
     """
     # Define helper lambda function
-    graph_dir_path = GRAPHS_DIR / global_mesh_config.name
+    graph_dir_path = GRAPH_PATH
 
     def loads_file(fn):
         return torch.load(

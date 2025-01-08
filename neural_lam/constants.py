@@ -93,7 +93,9 @@ PRESSURE_LEVEL2WEIGHT = {
 #     for level in REL_PRESSURE_LEVELS
 # ] + SURFACE_PARAMS_SHORT
 PARAM_NAMES = [
-    f"{param}-{level}" for param in ATMOSPHERIC_PARAMS for level in REL_PRESSURE_LEVELS
+    f"{param}-{level}"
+    for param in ATMOSPHERIC_PARAMS
+    for level in REL_PRESSURE_LEVELS
 ] + SURFACE_PARAMS
 
 
@@ -140,7 +142,7 @@ SURFACE_PARAM2WEIGHT = {
 # )
 
 # Projection and grid
-GRID_SHAPE = (180, 91)  # (long, lat)
+GRID_SHAPE = (360, 181)  # (long, lat)
 
 # Create projection
 MAP_PROJ = cartopy.crs.Robinson()
@@ -152,7 +154,7 @@ GRID_LIMITS = [
 ]
 
 # Time step length (hours)
-TIME_STEP_LENGTH = 24
+TIME_STEP_LENGTH = 1
 
 # Data dimensions
 GRID_ORIGINAL_FORCING_DIM = 5  # 5 features
@@ -160,6 +162,3 @@ GRID_FORCING_DIM = GRID_ORIGINAL_FORCING_DIM * 3
 # 5 features for 3 time-step window
 # GRID_STATE_DIM = 6 * 13 + 5  # 83
 GRID_STATE_DIM = 6 * 13 + 5  # 83
-
-# just testing, 3 atm and one surface
-GRID_STATE_DIM = len(PARAM_NAMES)

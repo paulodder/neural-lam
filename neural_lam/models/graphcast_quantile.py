@@ -19,6 +19,7 @@ class GraphCastQuant(pl.LightningModule):
 
     def __init__(self, args, global_mesh_config, pretrained_path=None):
         # super().__init__(args, global_mesh_config, 0)
+        super().__init__()
 
         # Load the pre-trained GraphCast model
         self.graphcast = GraphCast(args, global_mesh_config, 0)
@@ -34,7 +35,7 @@ class GraphCastQuant(pl.LightningModule):
         num_quantiles = 3
         output_shape = (num_timesteps, num_quantiles)
 
-        # Classification head
+        # quant head
         self.quantifier = nn.Sequential(
             nn.Linear(args.hidden_dim, args.hidden_dim // 2),
             nn.ReLU(),
@@ -45,7 +46,7 @@ class GraphCastQuant(pl.LightningModule):
     def load_pretrained(self, path):
         """Load pre-trained GraphCast weights"""
         checkpoint = torch.load(path, map_location=self.device)
-        self.graphcast.load_state_dict(checkpoint["state_dict"])
+        self.graphcast.load_state_dict(checkpoint["state_dict"], strict=False)
         print(f"Loaded pre-trained GraphCast from {path}")
 
     def forward(self, grid_state, grid_forcing):
@@ -107,6 +108,3 @@ class GraphCastQuant(pl.LightningModule):
             "test_loss", loss, prog_bar=True, on_epoch=True, sync_dist=True
         )
         return loss
-
-    # We don't need to implement get_num_mesh, embedd_mesh_nodes, and process_step
-    # as we're using these methods from the original GraphCast model
