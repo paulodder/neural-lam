@@ -44,7 +44,7 @@ class GraphCast(BaseGraphModel):
             InteractionNet(
                 self.m2m_edge_index,
                 args.hidden_dim,
-                hidden_layers=args.hidden_layers,gra
+                hidden_layers=args.hidden_layers,
                 aggr=args.mesh_aggr,
             )
             for _ in range(args.processor_layers)

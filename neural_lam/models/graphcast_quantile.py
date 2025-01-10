@@ -49,19 +49,48 @@ class GraphCastQuant(pl.LightningModule):
         self.graphcast.load_state_dict(checkpoint["state_dict"], strict=False)
         print(f"Loaded pre-trained GraphCast from {path}")
 
-    def forward(self, grid_state, grid_forcing):
+    def forward(self, atmos_state, forcing):
         """
         Forward pass for classification
         """
         # Use GraphCast's encoding and processing
-        mesh_rep = self.graphcast.grid_to_mesh(grid_state, grid_forcing)
+        self.grid_static_features = torch.nan_to_num(self.grid_static_features)
+        # Create full grid node features of shape (B, num_grid_nodes, grid_dim)
+        grid_features = torch.cat(
+            (
+                atmos_state
+                forcing,
+                self.expand_to_batch((self.grid_static_features), batch_size),
+            ),
+            dim=-1,
+        )
+
+
+        grid_emb = self.graphcast.grid_embedder(
+            grid_features
+        )  # (B, num_grid_nodes, d_h)
+        g2m_emb = self.graphcast.g2m_embedder(self.graphcast.g2m_features)  # (M_g2m, d_h)
+        m2g_emb = self.graphcast.m2g_embedder(self.graphcast.m2g_features)  # (M_m2g, d_h)
+        mesh_emb = self.graphcast.embedd_mesh_nodes()
+
+        # Map from grid to mesh
+        mesh_emb_expanded = self.expand_to_batch(
+            mesh_emb, batch_size
+        )  # (B, num_mesh_nodes, d_h)
+        g2m_emb_expanded = self.expand_to_batch(g2m_emb, batch_size)
+
+        # This also splits representation into grid and mesh
+        mesh_rep = self.graphcast.g2m_gnn(
+            grid_emb, mesh_emb_expanded, g2m_emb_expanded
+        )  # (B, num_mesh_nodes, d_h)
+        # Also MLP with residual for grid representation
+        grid_rep = grid_emb + self.graphcast.encoding_grid_mlp(
+            grid_emb
+        )  # (B, num_grid_nodes, d_h)
+
+        # Run processor step
         mesh_rep = self.graphcast.process_step(mesh_rep)
-
-        # Global average pooling
-        mesh_rep = torch.mean(mesh_rep, dim=1)  # (B, d_h)
-
-        # Classification
-        output = self.quantifier(mesh_rep)
+        breakpoint()
 
         return output.squeeze()
 
