@@ -12,6 +12,10 @@ from tueplots import bundles, figsizes
 from neural_lam import constants
 from neural_lam.interaction_net import InteractionNet
 
+from atmos.constants import DATASET_NAME, DATASETS_DIR
+
+DATASET_DIR = DATASETS_DIR / "processed" / DATASET_NAME
+
 
 def load_dataset_stats(dataset_name, device="cpu"):
     """
@@ -45,6 +49,8 @@ def load_static_data(dataset_name, device="cpu"):
     Load static files related to dataset
     """
     static_dir_path = os.path.join("data", dataset_name, "static")
+    DATASET_DIR = DATASETS_DIR / "processed" / DATASET_NAME / "train"
+    static_dir_path = DATASET_DIR / "static"
 
     def loads_file(fn):
         return torch.load(
@@ -79,29 +85,29 @@ def load_static_data(dataset_name, device="cpu"):
     )  # (N_grid, d_grid_static)
 
     # Load step diff stats
-    step_diff_mean = loads_file("diff_mean.pt")  # (d_f,)
-    step_diff_std = loads_file("diff_std.pt")  # (d_f,)
+    # step_diff_mean = loads_file("diff_mean.pt")  # (d_f,)
+    # step_diff_std = loads_file("diff_std.pt")  # (d_f,)
 
     # Load parameter std for computing validation errors in original data scale
-    data_mean = loads_file("parameter_mean.pt")  # (d_features,)
-    data_std = loads_file("parameter_std.pt")  # (d_features,)
+    # data_mean = loads_file("parameter_mean.pt")  # (d_features,)
+    # data_std = loads_file("parameter_std.pt")  # (d_features,)
 
     # Load loss weighting vectors
-    param_weights = torch.tensor(
-        np.load(os.path.join(static_dir_path, "parameter_weights.npy")),
-        dtype=torch.float32,
-        device=device,
-    )  # (d_f,)
+    # param_weights = torch.tensor(
+    #     np.load(os.path.join(static_dir_path, "parameter_weights.npy")),
+    #     dtype=torch.float32,
+    #     device=device,
+    # )  # (d_f,)
 
     return {
         "grid_weights": grid_weights,
         "border_mask": border_mask,
         "grid_static_features": grid_static_features,
-        "step_diff_mean": step_diff_mean,
-        "step_diff_std": step_diff_std,
-        "data_mean": data_mean,
-        "data_std": data_std,
-        "param_weights": param_weights,
+        # "step_diff_mean": step_diff_mean,
+        # "step_diff_std": step_diff_std,
+        # "data_mean": data_mean,
+        # "data_std": data_std,
+        # "param_weights": param_weights,
     }
 
 
@@ -136,9 +142,12 @@ def load_graph(graph_name, device="cpu"):
     """
     # Define helper lambda function
     graph_dir_path = os.path.join("graphs", graph_name)
+    graph_dir_path = DATASET_DIR / "graphs"
 
     def loads_file(fn):
-        return torch.load(os.path.join(graph_dir_path, fn), map_location=device)
+        return torch.load(
+            os.path.join(graph_dir_path, fn), map_location=device
+        )
 
     # Load edges (edge_index)
     m2m_edge_index = BufferList(
@@ -151,7 +160,9 @@ def load_graph(graph_name, device="cpu"):
     hierarchical = n_levels > 1  # Nor just single level mesh graph
 
     # Load static edge features
-    m2m_features = loads_file("m2m_features.pt")  # List of (M_m2m[l], d_edge_f)
+    m2m_features = loads_file(
+        "m2m_features.pt"
+    )  # List of (M_m2m[l], d_edge_f)
     g2m_features = loads_file("g2m_features.pt")  # (M_g2m, d_edge_f)
     m2g_features = loads_file("m2g_features.pt")  # (M_m2g, d_edge_f)
 
